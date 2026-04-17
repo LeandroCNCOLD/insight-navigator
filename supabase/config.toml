@@ -5,3 +5,6 @@ verify_jwt = true
 
 [functions.chat-analytics]
 verify_jwt = true
+
+[functions.forensic-analyze]
+verify_jwt = true
