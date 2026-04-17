@@ -20,7 +20,10 @@ export const Route = createFileRoute("/app/documents/")({
 function DocsList() {
   const [q, setQ] = useState("");
   const [queue, setQueue] = useState<QueueItem[]>([]);
-  useEffect(() => uploadQueue.subscribe(setQueue), []);
+  useEffect(() => {
+    const unsub = uploadQueue.subscribe(setQueue);
+    return () => { unsub(); };
+  }, []);
 
   const { data, refetch } = useQuery({
     queryKey: ["documents"],

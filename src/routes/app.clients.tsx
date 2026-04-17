@@ -214,7 +214,9 @@ function ClientDrawer({
   const save = async () => {
     if (!Object.keys(edit).length) { onClose(); return; }
     setSaving(true);
-    const { error } = await supabase.from("clients").update(edit).eq("id", client.id);
+    // Strip computed fields before sending
+    const { stats: _s, proposals: _p, id: _i, ...payload } = edit as any;
+    const { error } = await supabase.from("clients").update(payload).eq("id", client.id);
     setSaving(false);
     if (error) { toast.error("Falha ao salvar", { description: error.message }); return; }
     toast.success("Cliente atualizado");
