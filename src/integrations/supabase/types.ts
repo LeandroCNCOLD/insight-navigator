@@ -216,6 +216,7 @@ export type Database = {
           id: string
           owner_id: string
           raw_text: string | null
+          resumo_executivo: string | null
           status: Database["public"]["Enums"]["document_status"]
           tags: string[] | null
           tipo_documental: string | null
@@ -234,6 +235,7 @@ export type Database = {
           id?: string
           owner_id: string
           raw_text?: string | null
+          resumo_executivo?: string | null
           status?: Database["public"]["Enums"]["document_status"]
           tags?: string[] | null
           tipo_documental?: string | null
@@ -252,6 +254,7 @@ export type Database = {
           id?: string
           owner_id?: string
           raw_text?: string | null
+          resumo_executivo?: string | null
           status?: Database["public"]["Enums"]["document_status"]
           tags?: string[] | null
           tipo_documental?: string | null
@@ -516,22 +519,32 @@ export type Database = {
           dados_tecnicos: Json | null
           data_proposta: string | null
           document_id: string
+          exclusoes_garantia: string | null
+          fornecimento_cliente: string | null
           frete_incluso: boolean | null
           frete_tipo: string | null
           garantia_limitacoes: string | null
           garantia_meses: number | null
           id: string
+          indicio_fechamento: string | null
+          insights_benchmarking: string | null
           instalacao_inclusa: boolean | null
           numero: string | null
           observacoes: string | null
           owner_id: string
+          palavras_chave: string[] | null
           parcelas: number | null
+          porte_projeto: string | null
           prazo_entrega_dias: number | null
           prazo_fabricacao_dias: number | null
           prazo_instalacao_dias: number | null
           representante_legal: string | null
+          resumo_comercial: string | null
+          resumo_executivo: string | null
+          resumo_tecnico: string | null
           riscos: string | null
           score_confianca: number | null
+          segmentacao_cliente: string | null
           status_proposta: string | null
           tem_assinatura: boolean | null
           updated_at: string
@@ -547,22 +560,32 @@ export type Database = {
           dados_tecnicos?: Json | null
           data_proposta?: string | null
           document_id: string
+          exclusoes_garantia?: string | null
+          fornecimento_cliente?: string | null
           frete_incluso?: boolean | null
           frete_tipo?: string | null
           garantia_limitacoes?: string | null
           garantia_meses?: number | null
           id?: string
+          indicio_fechamento?: string | null
+          insights_benchmarking?: string | null
           instalacao_inclusa?: boolean | null
           numero?: string | null
           observacoes?: string | null
           owner_id: string
+          palavras_chave?: string[] | null
           parcelas?: number | null
+          porte_projeto?: string | null
           prazo_entrega_dias?: number | null
           prazo_fabricacao_dias?: number | null
           prazo_instalacao_dias?: number | null
           representante_legal?: string | null
+          resumo_comercial?: string | null
+          resumo_executivo?: string | null
+          resumo_tecnico?: string | null
           riscos?: string | null
           score_confianca?: number | null
+          segmentacao_cliente?: string | null
           status_proposta?: string | null
           tem_assinatura?: boolean | null
           updated_at?: string
@@ -578,22 +601,32 @@ export type Database = {
           dados_tecnicos?: Json | null
           data_proposta?: string | null
           document_id?: string
+          exclusoes_garantia?: string | null
+          fornecimento_cliente?: string | null
           frete_incluso?: boolean | null
           frete_tipo?: string | null
           garantia_limitacoes?: string | null
           garantia_meses?: number | null
           id?: string
+          indicio_fechamento?: string | null
+          insights_benchmarking?: string | null
           instalacao_inclusa?: boolean | null
           numero?: string | null
           observacoes?: string | null
           owner_id?: string
+          palavras_chave?: string[] | null
           parcelas?: number | null
+          porte_projeto?: string | null
           prazo_entrega_dias?: number | null
           prazo_fabricacao_dias?: number | null
           prazo_instalacao_dias?: number | null
           representante_legal?: string | null
+          resumo_comercial?: string | null
+          resumo_executivo?: string | null
+          resumo_tecnico?: string | null
           riscos?: string | null
           score_confianca?: number | null
+          segmentacao_cliente?: string | null
           status_proposta?: string | null
           tem_assinatura?: boolean | null
           updated_at?: string
