@@ -209,6 +209,7 @@ export type Database = {
           competitor_id: string | null
           created_at: string
           error_message: string | null
+          file_hash: string | null
           file_name: string
           file_path: string
           file_size: number | null
@@ -229,6 +230,7 @@ export type Database = {
           competitor_id?: string | null
           created_at?: string
           error_message?: string | null
+          file_hash?: string | null
           file_name: string
           file_path: string
           file_size?: number | null
@@ -249,6 +251,7 @@ export type Database = {
           competitor_id?: string | null
           created_at?: string
           error_message?: string | null
+          file_hash?: string | null
           file_name?: string
           file_path?: string
           file_size?: number | null
