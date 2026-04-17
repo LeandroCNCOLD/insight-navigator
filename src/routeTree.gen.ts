@@ -32,6 +32,7 @@ import { Route as AppDashboardsStrategicRouteImport } from './routes/app.dashboa
 import { Route as AppDashboardsGeographicRouteImport } from './routes/app.dashboards.geographic'
 import { Route as AppDashboardsContractualRouteImport } from './routes/app.dashboards.contractual'
 import { Route as AppDashboardsCommercialRouteImport } from './routes/app.dashboards.commercial'
+import { Route as AppDocumentsIdForensicRouteImport } from './routes/app.documents.$id.forensic'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -149,6 +150,11 @@ const AppDashboardsCommercialRoute = AppDashboardsCommercialRouteImport.update({
   path: '/dashboards/commercial',
   getParentRoute: () => AppRoute,
 } as any)
+const AppDocumentsIdForensicRoute = AppDocumentsIdForensicRouteImport.update({
+  id: '/forensic',
+  path: '/forensic',
+  getParentRoute: () => AppDocumentsIdRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -172,8 +178,9 @@ export interface FileRoutesByFullPath {
   '/app/dashboards/geographic': typeof AppDashboardsGeographicRoute
   '/app/dashboards/strategic': typeof AppDashboardsStrategicRoute
   '/app/dashboards/technical': typeof AppDashboardsTechnicalRoute
-  '/app/documents/$id': typeof AppDocumentsIdRoute
+  '/app/documents/$id': typeof AppDocumentsIdRouteWithChildren
   '/app/documents/': typeof AppDocumentsIndexRoute
+  '/app/documents/$id/forensic': typeof AppDocumentsIdForensicRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -196,8 +203,9 @@ export interface FileRoutesByTo {
   '/app/dashboards/geographic': typeof AppDashboardsGeographicRoute
   '/app/dashboards/strategic': typeof AppDashboardsStrategicRoute
   '/app/dashboards/technical': typeof AppDashboardsTechnicalRoute
-  '/app/documents/$id': typeof AppDocumentsIdRoute
+  '/app/documents/$id': typeof AppDocumentsIdRouteWithChildren
   '/app/documents': typeof AppDocumentsIndexRoute
+  '/app/documents/$id/forensic': typeof AppDocumentsIdForensicRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -222,8 +230,9 @@ export interface FileRoutesById {
   '/app/dashboards/geographic': typeof AppDashboardsGeographicRoute
   '/app/dashboards/strategic': typeof AppDashboardsStrategicRoute
   '/app/dashboards/technical': typeof AppDashboardsTechnicalRoute
-  '/app/documents/$id': typeof AppDocumentsIdRoute
+  '/app/documents/$id': typeof AppDocumentsIdRouteWithChildren
   '/app/documents/': typeof AppDocumentsIndexRoute
+  '/app/documents/$id/forensic': typeof AppDocumentsIdForensicRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -251,6 +260,7 @@ export interface FileRouteTypes {
     | '/app/dashboards/technical'
     | '/app/documents/$id'
     | '/app/documents/'
+    | '/app/documents/$id/forensic'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -275,6 +285,7 @@ export interface FileRouteTypes {
     | '/app/dashboards/technical'
     | '/app/documents/$id'
     | '/app/documents'
+    | '/app/documents/$id/forensic'
   id:
     | '__root__'
     | '/'
@@ -300,6 +311,7 @@ export interface FileRouteTypes {
     | '/app/dashboards/technical'
     | '/app/documents/$id'
     | '/app/documents/'
+    | '/app/documents/$id/forensic'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -471,8 +483,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppDashboardsCommercialRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/documents/$id/forensic': {
+      id: '/app/documents/$id/forensic'
+      path: '/forensic'
+      fullPath: '/app/documents/$id/forensic'
+      preLoaderRoute: typeof AppDocumentsIdForensicRouteImport
+      parentRoute: typeof AppDocumentsIdRoute
+    }
   }
 }
+
+interface AppDocumentsIdRouteChildren {
+  AppDocumentsIdForensicRoute: typeof AppDocumentsIdForensicRoute
+}
+
+const AppDocumentsIdRouteChildren: AppDocumentsIdRouteChildren = {
+  AppDocumentsIdForensicRoute: AppDocumentsIdForensicRoute,
+}
+
+const AppDocumentsIdRouteWithChildren = AppDocumentsIdRoute._addFileChildren(
+  AppDocumentsIdRouteChildren,
+)
 
 interface AppRouteChildren {
   AppAuditRoute: typeof AppAuditRoute
@@ -493,7 +524,7 @@ interface AppRouteChildren {
   AppDashboardsGeographicRoute: typeof AppDashboardsGeographicRoute
   AppDashboardsStrategicRoute: typeof AppDashboardsStrategicRoute
   AppDashboardsTechnicalRoute: typeof AppDashboardsTechnicalRoute
-  AppDocumentsIdRoute: typeof AppDocumentsIdRoute
+  AppDocumentsIdRoute: typeof AppDocumentsIdRouteWithChildren
   AppDocumentsIndexRoute: typeof AppDocumentsIndexRoute
 }
 
@@ -516,7 +547,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppDashboardsGeographicRoute: AppDashboardsGeographicRoute,
   AppDashboardsStrategicRoute: AppDashboardsStrategicRoute,
   AppDashboardsTechnicalRoute: AppDashboardsTechnicalRoute,
-  AppDocumentsIdRoute: AppDocumentsIdRoute,
+  AppDocumentsIdRoute: AppDocumentsIdRouteWithChildren,
   AppDocumentsIndexRoute: AppDocumentsIndexRoute,
 }
 

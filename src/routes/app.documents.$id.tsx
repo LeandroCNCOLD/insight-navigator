@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/dashboard-bits";
-import { ArrowLeft, FileText, Download } from "lucide-react";
+import { ArrowLeft, FileText, Download, Sparkles } from "lucide-react";
 import { formatBRL, formatBytes, formatDate, statusLabel } from "@/lib/format";
 
 export const Route = createFileRoute("/app/documents/$id")({
@@ -40,8 +40,12 @@ function DocDetail() {
       </Link>
 
       <PageHeader title={d.file_name} description={`${d.file_type.toUpperCase()} · ${formatBytes(d.file_size)} · ${formatDate(d.created_at)}`}
-        action={<div className="flex gap-2">
+        action={<div className="flex gap-2 items-center">
+          {d.tem_analise_forense && <Badge variant="outline" className="gap-1"><Sparkles className="size-3" />Forense</Badge>}
           <Badge variant={d.status === "extracted" ? "default" : d.status === "failed" ? "destructive" : "secondary"}>{statusLabel[d.status] || d.status}</Badge>
+          <Link to="/app/documents/$id/forensic" params={{ id }}>
+            <Button variant="default" size="sm"><Sparkles className="size-3.5 mr-2" />Análise Forense</Button>
+          </Link>
           <Button variant="outline" size="sm" onClick={downloadFile}><Download className="size-3.5 mr-2" />Baixar</Button>
         </div>} />
 
