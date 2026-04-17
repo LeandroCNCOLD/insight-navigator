@@ -1,37 +1,49 @@
-// Edge function: receives raw text + metadata, calls Lovable AI, returns structured proposal data
+// Edge function: receives raw text + metadata, calls Lovable AI, returns structured proposal data + evidences
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const SYSTEM_PROMPT = `Você é um analista sênior de inteligência competitiva especializado em propostas comerciais de engenharia, refrigeração industrial, câmaras frias, armazenagem de sementes e agroindústria.
+const SYSTEM_PROMPT = `Você é um especialista sênior em leitura de propostas técnicas, propostas comerciais, contratos e anexos de engenharia (refrigeração industrial, câmaras frias, armazenagem de sementes, agroindústria).
 
-Sua tarefa é extrair informações estruturadas de um documento (proposta comercial, contrato, anexo técnico ou planilha) e retornar SOMENTE chamando a função extract_proposal.
+Sua tarefa é transformar o documento em dados estruturados confiáveis para análise de benchmarking competitivo.
 
-Regras:
-- Use null quando a informação não estiver claramente presente no texto.
-- score_confianca de cada campo: 0.0 a 1.0 baseado em quão explícito está no texto.
+REGRAS CRÍTICAS:
+- Extraia APENAS informações com evidência documental clara. NUNCA invente.
+- Quando não encontrar um dado, retorne null. Quando houver incerteza, sinalize baixa confiança (score < 0.5).
+- Para CADA campo extraído, popule o array "evidencias" com: campo, valor_extraido, pagina (se identificável no texto), trecho (citação literal ~120 chars) e score_confianca (0-1).
 - Normalize valores monetários para BRL (números, sem símbolo).
-- Normalize unidades técnicas (HP, kcal/h, °C).
-- Para equipamentos, liste cada item separado com modelo, quantidade, potência etc.
-- Gere uma observação curta com riscos ou pontos de atenção comerciais.`;
+- Normalize unidades técnicas (HP, kcal/h, °C, %).
+- Para equipamentos, liste cada item separado.
+- Gere resumos analíticos de alto nível (executivo, técnico, comercial).
+- Classifique porte do projeto (pequeno < R$ 200k, médio R$ 200k-1M, grande > R$ 1M) e indício de fechamento (baixo/médio/alto) baseado em sinais como assinatura, status, condições.
+
+Retorne SOMENTE chamando a função extract_proposal.`;
 
 const TOOL_SCHEMA = {
   type: "function",
   function: {
     name: "extract_proposal",
-    description: "Extrai dados estruturados de uma proposta/documento comercial-técnico.",
+    description: "Extrai dados estruturados, resumos analíticos e evidências por campo de uma proposta/documento.",
     parameters: {
       type: "object",
       properties: {
+        // Identificação
         numero: { type: ["string", "null"] },
         data_proposta: { type: ["string", "null"], description: "ISO YYYY-MM-DD" },
+        tipo_documental: { type: ["string", "null"], description: "proposta_comercial, proposta_tecnica, contrato, anexo, memorial, planilha" },
+        status_proposta: { type: ["string", "null"], description: "comercial, contratada, revisao, aditivo, rascunho" },
+
+        // Cliente
         cliente_nome: { type: ["string", "null"] },
         cliente_razao_social: { type: ["string", "null"] },
         cliente_cidade: { type: ["string", "null"] },
         cliente_estado: { type: ["string", "null"], description: "UF 2 letras" },
         segmento: { type: ["string", "null"] },
+        segmentacao_cliente: { type: ["string", "null"], description: "Inferência analítica do segmento (agronegócio, frigorífico, varejo, etc)" },
+
+        // Comercial
         valor_total: { type: ["number", "null"] },
         condicao_pagamento: { type: ["string", "null"] },
         parcelas: { type: ["integer", "null"] },
@@ -40,16 +52,32 @@ const TOOL_SCHEMA = {
         prazo_instalacao_dias: { type: ["integer", "null"] },
         garantia_meses: { type: ["integer", "null"] },
         garantia_limitacoes: { type: ["string", "null"] },
+        exclusoes_garantia: { type: ["string", "null"] },
         frete_tipo: { type: ["string", "null"], description: "FOB, CIF ou similar" },
         frete_incluso: { type: ["boolean", "null"] },
         instalacao_inclusa: { type: ["boolean", "null"] },
+        fornecimento_cliente: { type: ["string", "null"], description: "Itens a serem fornecidos pelo cliente" },
+
+        // Pessoas
         vendedor: { type: ["string", "null"] },
         representante_legal: { type: ["string", "null"] },
-        tem_assinatura: { type: ["boolean", "null"] },
-        status_proposta: { type: ["string", "null"], description: "comercial, contratada, revisão ou aditivo" },
+        tem_assinatura: { type: ["boolean", "null"], description: "Há assinatura física, eletrônica ou DocuSign" },
+
+        // Análise
         observacoes: { type: ["string", "null"] },
         riscos: { type: ["string", "null"] },
         score_confianca: { type: "number" },
+
+        // Resumos analíticos
+        resumo_executivo: { type: ["string", "null"], description: "2-4 linhas, visão de alto nível" },
+        resumo_tecnico: { type: ["string", "null"], description: "Aspectos técnicos da solução" },
+        resumo_comercial: { type: ["string", "null"], description: "Condições comerciais, valor, prazos" },
+        insights_benchmarking: { type: ["string", "null"], description: "Pontos comparáveis com mercado" },
+        palavras_chave: { type: "array", items: { type: "string" }, description: "5-15 palavras-chave do documento" },
+        porte_projeto: { type: ["string", "null"], description: "pequeno, medio ou grande" },
+        indicio_fechamento: { type: ["string", "null"], description: "baixo, medio ou alto" },
+
+        // Técnico
         dados_tecnicos: {
           type: "object",
           properties: {
@@ -65,6 +93,8 @@ const TOOL_SCHEMA = {
             monitoramento_remoto: { type: ["boolean", "null"] },
           },
         },
+
+        // Equipamentos
         equipamentos: {
           type: "array",
           items: {
@@ -84,6 +114,8 @@ const TOOL_SCHEMA = {
             },
           },
         },
+
+        // Cláusulas
         clausulas: {
           type: "array",
           items: {
@@ -92,6 +124,23 @@ const TOOL_SCHEMA = {
               tipo: { type: "string" },
               texto: { type: "string" },
             },
+          },
+        },
+
+        // EVIDÊNCIAS por campo (rastreabilidade)
+        evidencias: {
+          type: "array",
+          description: "Uma entrada por campo extraído com trecho literal de evidência.",
+          items: {
+            type: "object",
+            properties: {
+              campo: { type: "string", description: "Nome do campo extraído (ex: valor_total, garantia_meses)" },
+              valor_extraido: { type: ["string", "null"] },
+              pagina: { type: ["integer", "null"] },
+              trecho: { type: ["string", "null"], description: "Citação literal ~120 caracteres" },
+              score_confianca: { type: "number" },
+            },
+            required: ["campo", "score_confianca"],
           },
         },
       },
@@ -112,7 +161,6 @@ Deno.serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not set");
 
-    // Truncate to keep context manageable
     const MAX = 60000;
     const content = text.length > MAX ? text.slice(0, MAX) + "\n\n[...truncado...]" : text;
 
@@ -120,7 +168,7 @@ Deno.serve(async (req) => {
       method: "POST",
       headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "google/gemini-2.5-pro",
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: `Documento: ${fileName} (${fileType})\n\n--- INÍCIO ---\n${content}\n--- FIM ---` },
