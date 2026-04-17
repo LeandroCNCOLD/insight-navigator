@@ -105,6 +105,32 @@ class UploadQueue {
 
   private async processReprocess(it: QueueItem) {
     if (!it.documentId) throw new Error("documentId ausente para reprocessar");
+
+    // Ensure raw_text exists; if not, re-parse from storage (legacy docs)
+    const { data: doc, error: docErr } = await supabase
+      .from("documents")
+      .select("id, file_path, file_name, raw_text")
+      .eq("id", it.documentId)
+      .maybeSingle();
+    if (docErr || !doc) throw new Error("Documento não encontrado");
+
+    if (!doc.raw_text || doc.raw_text.trim().length < 50) {
+      this.update(it.id, { status: "parsing", message: "Re-extraindo texto do arquivo…" });
+      const { data: blob, error: dlErr } = await supabase.storage
+        .from("documents")
+        .download(doc.file_path);
+      if (dlErr || !blob) throw new Error("Falha ao baixar arquivo do storage");
+      const file = new File([blob], doc.file_name, { type: blob.type });
+      const parsed = await parseDocument(file);
+      if (!parsed.text || parsed.text.trim().length < 50) {
+        throw new Error("Não foi possível extrair texto (PDF escaneado/sem OCR?)");
+      }
+      await supabase
+        .from("documents")
+        .update({ raw_text: parsed.text.slice(0, 200000) })
+        .eq("id", doc.id);
+    }
+
     this.update(it.id, { status: "extracting", message: "Análise forense profunda…" });
     const { data, error } = await supabase.functions.invoke("forensic-analyze", {
       body: { documentId: it.documentId },
