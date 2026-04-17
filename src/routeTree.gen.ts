@@ -13,6 +13,13 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppIndexRouteImport } from './routes/app.index'
+import { Route as AppUploadRouteImport } from './routes/app.upload'
+import { Route as AppProposalsRouteImport } from './routes/app.proposals'
+import { Route as AppEquipmentsRouteImport } from './routes/app.equipments'
+import { Route as AppCompetitorsRouteImport } from './routes/app.competitors'
+import { Route as AppClientsRouteImport } from './routes/app.clients'
+import { Route as AppDocumentsIndexRouteImport } from './routes/app.documents.index'
+import { Route as AppDocumentsIdRouteImport } from './routes/app.documents.$id'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -34,31 +41,120 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppUploadRoute = AppUploadRouteImport.update({
+  id: '/upload',
+  path: '/upload',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppProposalsRoute = AppProposalsRouteImport.update({
+  id: '/proposals',
+  path: '/proposals',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppEquipmentsRoute = AppEquipmentsRouteImport.update({
+  id: '/equipments',
+  path: '/equipments',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppCompetitorsRoute = AppCompetitorsRouteImport.update({
+  id: '/competitors',
+  path: '/competitors',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppClientsRoute = AppClientsRouteImport.update({
+  id: '/clients',
+  path: '/clients',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDocumentsIndexRoute = AppDocumentsIndexRouteImport.update({
+  id: '/documents/',
+  path: '/documents/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDocumentsIdRoute = AppDocumentsIdRouteImport.update({
+  id: '/documents/$id',
+  path: '/documents/$id',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
   '/auth': typeof AuthRoute
+  '/app/clients': typeof AppClientsRoute
+  '/app/competitors': typeof AppCompetitorsRoute
+  '/app/equipments': typeof AppEquipmentsRoute
+  '/app/proposals': typeof AppProposalsRoute
+  '/app/upload': typeof AppUploadRoute
   '/app/': typeof AppIndexRoute
+  '/app/documents/$id': typeof AppDocumentsIdRoute
+  '/app/documents/': typeof AppDocumentsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/app/clients': typeof AppClientsRoute
+  '/app/competitors': typeof AppCompetitorsRoute
+  '/app/equipments': typeof AppEquipmentsRoute
+  '/app/proposals': typeof AppProposalsRoute
+  '/app/upload': typeof AppUploadRoute
   '/app': typeof AppIndexRoute
+  '/app/documents/$id': typeof AppDocumentsIdRoute
+  '/app/documents': typeof AppDocumentsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
   '/auth': typeof AuthRoute
+  '/app/clients': typeof AppClientsRoute
+  '/app/competitors': typeof AppCompetitorsRoute
+  '/app/equipments': typeof AppEquipmentsRoute
+  '/app/proposals': typeof AppProposalsRoute
+  '/app/upload': typeof AppUploadRoute
   '/app/': typeof AppIndexRoute
+  '/app/documents/$id': typeof AppDocumentsIdRoute
+  '/app/documents/': typeof AppDocumentsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/app' | '/auth' | '/app/'
+  fullPaths:
+    | '/'
+    | '/app'
+    | '/auth'
+    | '/app/clients'
+    | '/app/competitors'
+    | '/app/equipments'
+    | '/app/proposals'
+    | '/app/upload'
+    | '/app/'
+    | '/app/documents/$id'
+    | '/app/documents/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/app'
-  id: '__root__' | '/' | '/app' | '/auth' | '/app/'
+  to:
+    | '/'
+    | '/auth'
+    | '/app/clients'
+    | '/app/competitors'
+    | '/app/equipments'
+    | '/app/proposals'
+    | '/app/upload'
+    | '/app'
+    | '/app/documents/$id'
+    | '/app/documents'
+  id:
+    | '__root__'
+    | '/'
+    | '/app'
+    | '/auth'
+    | '/app/clients'
+    | '/app/competitors'
+    | '/app/equipments'
+    | '/app/proposals'
+    | '/app/upload'
+    | '/app/'
+    | '/app/documents/$id'
+    | '/app/documents/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -97,15 +193,78 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/upload': {
+      id: '/app/upload'
+      path: '/upload'
+      fullPath: '/app/upload'
+      preLoaderRoute: typeof AppUploadRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/proposals': {
+      id: '/app/proposals'
+      path: '/proposals'
+      fullPath: '/app/proposals'
+      preLoaderRoute: typeof AppProposalsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/equipments': {
+      id: '/app/equipments'
+      path: '/equipments'
+      fullPath: '/app/equipments'
+      preLoaderRoute: typeof AppEquipmentsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/competitors': {
+      id: '/app/competitors'
+      path: '/competitors'
+      fullPath: '/app/competitors'
+      preLoaderRoute: typeof AppCompetitorsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/clients': {
+      id: '/app/clients'
+      path: '/clients'
+      fullPath: '/app/clients'
+      preLoaderRoute: typeof AppClientsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/documents/': {
+      id: '/app/documents/'
+      path: '/documents'
+      fullPath: '/app/documents/'
+      preLoaderRoute: typeof AppDocumentsIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/documents/$id': {
+      id: '/app/documents/$id'
+      path: '/documents/$id'
+      fullPath: '/app/documents/$id'
+      preLoaderRoute: typeof AppDocumentsIdRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
 interface AppRouteChildren {
+  AppClientsRoute: typeof AppClientsRoute
+  AppCompetitorsRoute: typeof AppCompetitorsRoute
+  AppEquipmentsRoute: typeof AppEquipmentsRoute
+  AppProposalsRoute: typeof AppProposalsRoute
+  AppUploadRoute: typeof AppUploadRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppDocumentsIdRoute: typeof AppDocumentsIdRoute
+  AppDocumentsIndexRoute: typeof AppDocumentsIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppClientsRoute: AppClientsRoute,
+  AppCompetitorsRoute: AppCompetitorsRoute,
+  AppEquipmentsRoute: AppEquipmentsRoute,
+  AppProposalsRoute: AppProposalsRoute,
+  AppUploadRoute: AppUploadRoute,
   AppIndexRoute: AppIndexRoute,
+  AppDocumentsIdRoute: AppDocumentsIdRoute,
+  AppDocumentsIndexRoute: AppDocumentsIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
