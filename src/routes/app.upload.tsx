@@ -26,7 +26,9 @@ function UploadPage() {
       setItems(next);
       setRunning(uploadQueue.isRunning());
     });
-    return unsub;
+    return () => {
+      unsub();
+    };
   }, []);
 
   // Invalidate queries whenever a doc finishes so other pages refresh
