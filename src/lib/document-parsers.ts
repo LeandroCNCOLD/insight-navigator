@@ -4,7 +4,6 @@ import mammoth from "mammoth";
 import * as XLSX from "xlsx";
 
 // Configure PDF.js worker (use CDN matching installed version)
-// @ts-expect-error - version is a string at runtime
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
 export type ParsedDoc = {
