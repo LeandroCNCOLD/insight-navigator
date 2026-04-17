@@ -224,6 +224,45 @@ const TOOL_SCHEMA = {
   },
 };
 
+const MIN_TEXT_LENGTH = 120;
+
+function normalizeSpaces(value: string | null | undefined) {
+  return (value || "").replace(/\s+/g, " ").trim();
+}
+
+function hasMeaningfulText(value: string | null | undefined) {
+  return normalizeSpaces(value).length >= MIN_TEXT_LENGTH;
+}
+
+function validateForensicExtraction(ex: any, sourceText: string) {
+  const text = normalizeSpaces(sourceText).toLowerCase();
+  const cliente = normalizeSpaces(ex?.cliente?.nome || ex?.cliente?.razao_social);
+  const padrao = normalizeSpaces(ex?.padrao_camara);
+  const camaras = Array.isArray(ex?.camaras) ? ex.camaras.filter(Boolean) : [];
+  const evidencias = Array.isArray(ex?.campos_literais) ? ex.campos_literais.filter((item: any) => item?.nome) : [];
+  const confidence = typeof ex?.score_global === "number" ? ex.score_global : 0;
+  const hasTechnical = camaras.length > 0 || !!padrao || !!normalizeSpaces(ex?.padrao_tecnico);
+  const hasClient = !!cliente || !!normalizeSpaces(ex?.cliente?.cnpj) || !!normalizeSpaces(ex?.cliente?.email);
+
+  if (!hasTechnical && !hasClient) {
+    return { valid: false, reason: "Análise forense não encontrou dados técnicos nem cadastrais suficientes" };
+  }
+
+  if (cliente) {
+    const compactClient = cliente.replace(/\s+/g, "").toLowerCase();
+    const compactText = text.replace(/\s+/g, "");
+    if (compactClient.length >= 6 && !compactText.includes(compactClient) && evidencias.length < 2) {
+      return { valid: false, reason: "Cliente retornado sem sustentação no texto do documento" };
+    }
+  }
+
+  if (confidence < 0.2 && evidencias.length < 2 && camaras.length === 0) {
+    return { valid: false, reason: "Análise forense com baixa confiança e sem evidências mínimas" };
+  }
+
+  return { valid: true };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -259,7 +298,7 @@ Deno.serve(async (req) => {
 
     // Self-healing: if raw_text missing, OCR via Gemini Vision through the Lovable AI gateway
     let rawText = doc.raw_text || "";
-    if (!rawText || rawText.replace(/\s+/g, " ").trim().length < 50) {
+    if (!hasMeaningfulText(rawText)) {
       console.log(`raw_text ausente para ${documentId}, tentando OCR via Vision API`);
       const { data: blob, error: dlErr } = await admin.storage.from("documents").download(doc.file_path);
       if (dlErr || !blob) throw new Error("Falha ao baixar arquivo do storage");
@@ -296,7 +335,7 @@ Deno.serve(async (req) => {
       }
       const visionData = await visionRes.json();
       rawText = visionData.choices?.[0]?.message?.content || "";
-      if (!rawText || rawText.trim().length < 50) {
+      if (!hasMeaningfulText(rawText)) {
         throw new Error("OCR não conseguiu extrair texto suficiente do documento");
       }
       await admin.from("documents").update({ raw_text: rawText.slice(0, 200000) }).eq("id", doc.id);
@@ -331,10 +370,18 @@ Deno.serve(async (req) => {
     }
 
     const data = await res.json();
+    const finishReason = data.choices?.[0]?.finish_reason;
+    if (finishReason === "length" || finishReason === "max_tokens") {
+      return new Response(JSON.stringify({ error: "Resposta da IA forense foi truncada; tente novamente." }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
     if (!toolCall) return new Response(JSON.stringify({ error: "IA não retornou dados estruturados" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     const ex = JSON.parse(toolCall.function.arguments);
+    const validation = validateForensicExtraction(ex, content);
+    if (!validation.valid) {
+      return new Response(JSON.stringify({ error: validation.reason }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     // ===== CLIENTE: merge não-destrutivo =====
     let resolvedClientId: string | null = doc.client_id || prop?.client_id || null;

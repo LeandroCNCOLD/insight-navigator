@@ -387,6 +387,11 @@ class UploadQueue {
       // 9) Forensic in background (fire-and-forget)
       supabase.functions
         .invoke("forensic-analyze", { body: { documentId: doc.id } })
+        .then(({ data, error }) => {
+          if (error || data?.error) {
+            console.warn("forensic-analyze falhou:", error?.message || data?.error);
+          }
+        })
         .catch((err) => console.warn("forensic-analyze falhou:", err));
 
       this.update(it.id, { status: "done" });
