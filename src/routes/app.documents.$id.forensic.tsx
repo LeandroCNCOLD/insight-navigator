@@ -54,7 +54,7 @@ function ForensicPage() {
   });
 
   if (isLoading) return <div className="p-6">Carregando...</div>;
-  const a = data?.analyses?.[0];
+  const a: any = data?.analyses?.[0];
 
   return (
     <div className="p-6 space-y-5">
@@ -287,11 +287,11 @@ function ForensicPage() {
           </Accordion>
 
           {/* histórico de versões */}
-          {data!.analyses.length > 1 && (
+          {data && data.analyses.length > 1 && (
             <Card className="p-4 gradient-surface border-border">
               <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Histórico de versões</div>
               <div className="text-xs text-muted-foreground">
-                {data!.analyses.map((v) => `v${v.versao}`).join(" · ")} (visualizando v{a.versao})
+                {data.analyses.map((v: any) => `v${v.versao}`).join(" · ")} (visualizando v{a.versao})
               </div>
             </Card>
           )}
