@@ -1,10 +1,10 @@
 project_id = "otsypqvrliqniuzajzik"
 
 [functions.extract-document]
-verify_jwt = true
+verify_jwt = false
 
 [functions.chat-analytics]
-verify_jwt = true
+verify_jwt = false
 
 [functions.forensic-analyze]
-verify_jwt = true
+verify_jwt = false
