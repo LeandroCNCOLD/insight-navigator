@@ -5,7 +5,13 @@ export const formatNumber = (v?: number | null, digits = 0) =>
   v == null ? "—" : new Intl.NumberFormat("pt-BR", { maximumFractionDigits: digits }).format(v);
 
 export const formatDate = (v?: string | null) =>
-  v == null ? "—" : new Intl.DateTimeFormat("pt-BR").format(new Date(v));
+  v == null
+    ? "—"
+    : (() => {
+        const date = new Date(v);
+        if (Number.isNaN(date.getTime())) return "—";
+        return new Intl.DateTimeFormat("pt-BR", { timeZone: "UTC" }).format(date);
+      })();
 
 export const formatBytes = (bytes?: number | null) => {
   if (!bytes) return "—";
