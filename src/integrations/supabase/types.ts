@@ -677,6 +677,60 @@ export type Database = {
         }
         Relationships: []
       }
+      proposal_review_events: {
+        Row: {
+          action: string
+          comment: string | null
+          created_at: string
+          created_by: string | null
+          document_id: string | null
+          field_name: string | null
+          id: string
+          new_value: Json | null
+          old_value: Json | null
+          proposal_id: string
+        }
+        Insert: {
+          action: string
+          comment?: string | null
+          created_at?: string
+          created_by?: string | null
+          document_id?: string | null
+          field_name?: string | null
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          proposal_id: string
+        }
+        Update: {
+          action?: string
+          comment?: string | null
+          created_at?: string
+          created_by?: string | null
+          document_id?: string | null
+          field_name?: string | null
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          proposal_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proposal_review_events_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposal_review_events_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       proposals: {
         Row: {
           analise_tecnica_profunda: Json | null
