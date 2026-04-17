@@ -74,7 +74,7 @@ function Dashboard() {
                 <CartesianGrid stroke="hsl(var(--border))" strokeOpacity={0.3} vertical={false} />
                 <XAxis dataKey="mes" stroke="oklch(0.66 0.012 260)" fontSize={11} />
                 <YAxis stroke="oklch(0.66 0.012 260)" fontSize={11} tickFormatter={(v) => `${(v/1000).toFixed(0)}k`} />
-                <Tooltip contentStyle={{ background: "oklch(0.19 0.006 260)", border: "1px solid oklch(0.27 0.008 260)", borderRadius: 8, fontSize: 12 }} formatter={(v: number) => formatBRL(v)} />
+                <Tooltip contentStyle={{ background: "oklch(0.19 0.006 260)", border: "1px solid oklch(0.27 0.008 260)", borderRadius: 8, fontSize: 12 }} formatter={(v) => formatBRL(Number(v))} />
                 <Line type="monotone" dataKey="valor" stroke="oklch(0.65 0.20 250)" strokeWidth={2} dot={{ fill: "oklch(0.65 0.20 250)", r: 3 }} />
               </LineChart>
             </ResponsiveContainer>
