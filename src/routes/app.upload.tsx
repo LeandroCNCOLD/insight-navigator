@@ -54,9 +54,18 @@ function UploadPage() {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Não autenticado");
 
-      // 1) Upload to storage
+      // 1) Upload to storage (sanitize filename — Supabase Storage rejects spaces, parens, accents)
       update(it.id, { status: "uploading" });
-      const path = `${u.user.id}/${Date.now()}-${it.file.name}`;
+      const dotIdx = it.file.name.lastIndexOf(".");
+      const baseName = dotIdx > 0 ? it.file.name.slice(0, dotIdx) : it.file.name;
+      const extName = dotIdx > 0 ? it.file.name.slice(dotIdx) : "";
+      const safeBase = baseName
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-zA-Z0-9._-]+/g, "_")
+        .replace(/_+/g, "_").replace(/^_|_$/g, "")
+        .slice(0, 80) || "file";
+      const safeExt = extName.toLowerCase().replace(/[^a-z0-9.]/g, "");
+      const path = `${u.user.id}/${Date.now()}-${safeBase}${safeExt}`;
       const { error: upErr } = await supabase.storage.from("documents").upload(path, it.file, { upsert: false });
       if (upErr) throw upErr;
 
