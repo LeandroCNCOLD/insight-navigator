@@ -15,10 +15,12 @@ export type QueueStatus =
 
 export type QueueItem = {
   id: string;
-  file: File;
+  file: File | null;
+  fileName: string;
   status: QueueStatus;
   message?: string;
   documentId?: string;
+  kind?: "upload" | "reprocess";
 };
 
 type Listener = (items: QueueItem[]) => void;
@@ -51,9 +53,32 @@ class UploadQueue {
     const newOnes: QueueItem[] = files.map((f) => ({
       id: crypto.randomUUID(),
       file: f,
+      fileName: f.name,
       status: "pending",
+      kind: "upload",
     }));
     this.items = [...this.items, ...newOnes];
+    this.emit();
+  }
+
+  reprocess(documentId: string, fileName: string) {
+    // Avoid duplicate reprocess in queue
+    const already = this.items.find(
+      (it) => it.kind === "reprocess" && it.documentId === documentId &&
+        ["pending", "extracting", "saving"].includes(it.status),
+    );
+    if (already) return;
+    this.items = [
+      ...this.items,
+      {
+        id: crypto.randomUUID(),
+        file: null,
+        fileName,
+        documentId,
+        status: "pending",
+        kind: "reprocess",
+      },
+    ];
     this.emit();
   }
 
@@ -78,13 +103,33 @@ class UploadQueue {
       .join("");
   }
 
+  private async processReprocess(it: QueueItem) {
+    if (!it.documentId) throw new Error("documentId ausente para reprocessar");
+    this.update(it.id, { status: "extracting", message: "Análise forense profunda…" });
+    const { data, error } = await supabase.functions.invoke("forensic-analyze", {
+      body: { documentId: it.documentId },
+    });
+    if (error) throw new Error(error.message);
+    if (data?.error) throw new Error(data.error);
+    this.update(it.id, {
+      status: "done",
+      message: data?.padrao_camara ? `Padrão: ${data.padrao_camara}` : "Reprocessado",
+    });
+  }
+
   private async processOne(it: QueueItem) {
     try {
+      if (it.kind === "reprocess") {
+        await this.processReprocess(it);
+        return;
+      }
+      if (!it.file) throw new Error("Arquivo ausente");
+      const file = it.file;
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Não autenticado");
 
       // Dedup: hash file and check existing
-      const fileHash = await this.hashFile(it.file);
+      const fileHash = await this.hashFile(file);
       const { data: existing } = await supabase
         .from("documents")
         .select("id, status")

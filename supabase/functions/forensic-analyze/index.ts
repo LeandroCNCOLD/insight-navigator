@@ -1,5 +1,5 @@
-// Forensic-grade document analysis: 4-level reading (literal → structural → semantic → analytical)
-// Returns 6 blocks (A-F) with full traceability.
+// Forensic-grade document analysis: 4-level reading + DEEP technical extraction.
+// Extracts cameras, thermal load, client contact data, and a "padrao_camara" signature.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
@@ -8,66 +8,81 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const SYSTEM_PROMPT = `Você é um analista forense sênior de documentos técnico-comerciais. Sua tarefa é ler integralmente cada documento, preservando rastreabilidade do primeiro caractere ao último, e transformá-lo em uma representação estrutural, semântica e analítica AUDITÁVEL.
+const SYSTEM_PROMPT = `Você é um analista forense sênior de propostas técnico-comerciais de refrigeração industrial (câmaras frias, sistemas frigoríficos). Leia o documento integralmente preservando rastreabilidade total.
 
-REGRAS OBRIGATÓRIAS (inquebráveis):
-1. NUNCA invente dados.
-2. SÓ extraia o que tiver evidência textual ou visual clara.
-3. SEMPRE preserve a origem exata da informação (página, bloco, trecho literal).
-4. Em dúvida, retorne baixa confiança (< 0.5).
-5. Quando um campo não existir, retorne null.
-6. Quando houver conflito entre trechos, popule "conflitos_documentais".
+REGRAS INQUEBRÁVEIS:
+1. NUNCA invente dados. 2. SÓ extraia o que tiver evidência textual. 3. SEMPRE preserve a origem (página, trecho). 4. Em dúvida, baixa confiança (<0.5). 5. Campo inexistente = null.
 
-LEITURA EM 4 NÍVEIS:
-- Nível 1 LITERAL: o texto como está
-- Nível 2 ESTRUTURAL: seções, blocos, tabelas, cláusulas, campos
-- Nível 3 SEMÂNTICO: significado técnico, comercial, contratual
-- Nível 4 ANALÍTICO: padrões de benchmarking
+LEITURA EM 4 NÍVEIS: literal → estrutural → semântica → analítica.
 
-ENTREGA OBRIGATÓRIA — chame APENAS forensic_extract retornando 6 blocos:
-- Bloco A — Estrutura documental (tipo, seções ordenadas, cabeçalhos, rodapés, índice, presença de tabelas/assinatura/DocuSign/carimbo/formulário)
-- Bloco B — Campos literais rastreáveis (cada item: nome, valor, página, bloco, trecho, score, método)
-- Bloco D — Taxonomia (classifica blocos em institucional/cadastral/técnico/comercial/contratual/assinatura/fechamento)
-- Bloco E — Análise comparável (4 resumos + riscos op./jurídicos + 5 padrões + insights)
-- Bloco F — Inferências (apenas com forte evidência, cada item explicita evidências e confiança)
-- Conflitos documentais quando houver
+EXTRAIA EM PROFUNDIDADE:
 
-Bloco C (técnico-comercial) já é coberto por outro motor — NÃO repetir aqui.`;
+A) Estrutura documental (tipo, seções, cabeçalhos, rodapés, presença de tabelas/assinatura/DocuSign/carimbo).
+
+B) Campos literais com rastreabilidade.
+
+C) DADOS CADASTRAIS DO CLIENTE (procure em capa, rodapé, "Para:", "Cliente:", carimbos):
+   - razao_social, nome_fantasia, cnpj, ie, endereco, bairro, cidade, estado, cep
+   - contato_nome, contato_cargo, telefone, whatsapp, email, site
+   - segmento (varejo alimentar, frigorífico, laticínio, food service, distribuidor, etc.)
+
+D) ANÁLISE TÉCNICA PROFUNDA — para CADA câmara fria descrita, retorne um objeto:
+   - nome (ex: "Câmara 01 – Resfriados"), produto_armazenado
+   - dimensoes: { comprimento_m, largura_m, altura_m, pe_direito_m }
+   - volume_m3 (calcule se dimensões existem), area_m2
+   - temperatura_alvo_c, temperatura_min_c, temperatura_max_c, umidade_relativa_pct
+   - carga_termica_kcal_h, carga_termica_btu_h, fator_seguranca_pct
+   - isolamento: { tipo (PIR/PUR/EPS), espessura_mm, densidade_kg_m3, revestimento }
+   - piso: { tipo, isolamento_mm, acabamento }
+   - portas: { quantidade, tipo (giro/correr/automática), dimensoes }
+   - iluminacao, ralos, antecamara (boolean), pressurizacao
+   - quantidade_unidades (se replicada)
+
+E) RESUMO DE EQUIPAMENTOS:
+   - total_unidades_refrigeracao, total_evaporadores, total_condensadores
+   - capacidade_total_kcal_h, potencia_total_hp
+   - gases_refrigerantes (lista), tipos_compressor (lista)
+   - tipo_sistema (rack, splitão, monobloco, etc.)
+
+F) CÁLCULO DE CARGA TÉRMICA:
+   - metodologia (ASHRAE, IIR, fabricante, manual)
+   - fatores_considerados (transmissão, infiltração, produto, iluminação, pessoas, motores, degelo)
+   - margem_seguranca_pct, software_utilizado
+
+G) PADRÃO DE CÂMARA (CRÍTICO para inteligência estratégica):
+   Crie UMA assinatura única curta para a câmara DOMINANTE da proposta no formato:
+   "{TempAlvo}°C | {Volume}m³ | {Isolamento}-{EspessMM} | {Produto}"
+   Ex: "0°C | 250m³ | PIR-100 | Resfriados Cárneos"
+   Ex: "-25°C | 800m³ | PIR-150 | Congelados"
+   Use faixas arredondadas (volume → múltiplos de 50; espessura → padrões 70/100/125/150/200).
+   Se a proposta tiver várias câmaras semelhantes, considere a maior/dominante.
+
+H) Resumos (executivo, técnico, comercial, contratual), riscos op./jurídicos, padrões de posicionamento/pagamento/garantia, insights de benchmarking, inferências.
+
+Chame APENAS forensic_extract com o JSON completo.`;
 
 const TOOL_SCHEMA = {
   type: "function",
   function: {
     name: "forensic_extract",
-    description: "Extração forense multinível com 6 blocos auditáveis.",
+    description: "Extração forense profunda + dados cadastrais + câmaras detalhadas.",
     parameters: {
       type: "object",
       properties: {
-        score_global: { type: "number", description: "Confiança média 0-1" },
+        score_global: { type: "number" },
 
         // Bloco A
         tipo_documento: { type: ["string", "null"] },
-        secoes: {
-          type: "array",
-          items: {
-            type: "object",
-            properties: {
-              ordem: { type: "integer" },
-              titulo: { type: "string" },
-              pagina_inicio: { type: ["integer", "null"] },
-              pagina_fim: { type: ["integer", "null"] },
-              tipo: { type: ["string", "null"], description: "capa, sumario, escopo, tecnico, comercial, contratual, anexos" },
-            },
-          },
-        },
+        secoes: { type: "array", items: { type: "object", properties: {
+          ordem: { type: "integer" }, titulo: { type: "string" },
+          pagina_inicio: { type: ["integer", "null"] }, pagina_fim: { type: ["integer", "null"] },
+          tipo: { type: ["string", "null"] },
+        } } },
         cabecalhos: { type: "array", items: { type: "string" } },
         rodapes: { type: "array", items: { type: "string" } },
-        indice_paginas: {
-          type: "array",
-          items: {
-            type: "object",
-            properties: { pagina: { type: "integer" }, conteudo: { type: "string" } },
-          },
-        },
+        indice_paginas: { type: "array", items: { type: "object", properties: {
+          pagina: { type: "integer" }, conteudo: { type: "string" },
+        } } },
         tem_tabelas: { type: ["boolean", "null"] },
         tem_assinatura: { type: ["boolean", "null"] },
         tem_docusign: { type: ["boolean", "null"] },
@@ -75,39 +90,110 @@ const TOOL_SCHEMA = {
         tem_formulario: { type: ["boolean", "null"] },
 
         // Bloco B
-        campos_literais: {
-          type: "array",
-          description: "Todos os campos extraídos com rastreabilidade.",
-          items: {
-            type: "object",
-            properties: {
-              nome: { type: "string" },
-              valor: { type: ["string", "null"] },
-              pagina: { type: ["integer", "null"] },
-              bloco: { type: ["string", "null"] },
-              trecho: { type: ["string", "null"], description: "Citação literal" },
-              score: { type: "number" },
-              metodo: { type: ["string", "null"], description: "regex, parsing direto, inferência contextual, etc." },
-            },
-            required: ["nome", "score"],
+        campos_literais: { type: "array", items: { type: "object", properties: {
+          nome: { type: "string" }, valor: { type: ["string", "null"] },
+          pagina: { type: ["integer", "null"] }, bloco: { type: ["string", "null"] },
+          trecho: { type: ["string", "null"] }, score: { type: "number" },
+          metodo: { type: ["string", "null"] },
+        }, required: ["nome", "score"] } },
+
+        // C — DADOS DO CLIENTE
+        cliente: {
+          type: "object",
+          properties: {
+            nome: { type: ["string", "null"] },
+            razao_social: { type: ["string", "null"] },
+            cnpj: { type: ["string", "null"] },
+            email: { type: ["string", "null"] },
+            telefone: { type: ["string", "null"] },
+            whatsapp: { type: ["string", "null"] },
+            endereco: { type: ["string", "null"] },
+            bairro: { type: ["string", "null"] },
+            cidade: { type: ["string", "null"] },
+            estado: { type: ["string", "null"] },
+            cep: { type: ["string", "null"] },
+            contato_nome: { type: ["string", "null"] },
+            contato_cargo: { type: ["string", "null"] },
+            site: { type: ["string", "null"] },
+            segmento: { type: ["string", "null"] },
           },
         },
 
-        // Bloco D
-        taxonomia_blocos: {
+        // D — CÂMARAS
+        camaras: {
           type: "array",
           items: {
             type: "object",
             properties: {
-              bloco: { type: "string" },
-              categoria: { type: "string", description: "institucional, cadastral, técnico, comercial, contratual, assinatura, fechamento" },
-              pagina: { type: ["integer", "null"] },
-              evidencia: { type: ["string", "null"] },
+              nome: { type: ["string", "null"] },
+              produto_armazenado: { type: ["string", "null"] },
+              quantidade_unidades: { type: ["integer", "null"] },
+              comprimento_m: { type: ["number", "null"] },
+              largura_m: { type: ["number", "null"] },
+              altura_m: { type: ["number", "null"] },
+              pe_direito_m: { type: ["number", "null"] },
+              volume_m3: { type: ["number", "null"] },
+              area_m2: { type: ["number", "null"] },
+              temperatura_alvo_c: { type: ["number", "null"] },
+              temperatura_min_c: { type: ["number", "null"] },
+              temperatura_max_c: { type: ["number", "null"] },
+              umidade_relativa_pct: { type: ["number", "null"] },
+              carga_termica_kcal_h: { type: ["number", "null"] },
+              carga_termica_btu_h: { type: ["number", "null"] },
+              fator_seguranca_pct: { type: ["number", "null"] },
+              isolamento_tipo: { type: ["string", "null"] },
+              isolamento_espessura_mm: { type: ["number", "null"] },
+              isolamento_densidade: { type: ["number", "null"] },
+              revestimento: { type: ["string", "null"] },
+              piso_tipo: { type: ["string", "null"] },
+              piso_isolamento_mm: { type: ["number", "null"] },
+              num_portas: { type: ["integer", "null"] },
+              tipo_porta: { type: ["string", "null"] },
+              tem_antecamara: { type: ["boolean", "null"] },
+              observacoes: { type: ["string", "null"] },
             },
           },
         },
 
-        // Bloco E
+        // E — RESUMO DE EQUIPAMENTOS
+        equipamentos_resumo: {
+          type: "object",
+          properties: {
+            total_unidades_refrigeracao: { type: ["integer", "null"] },
+            total_evaporadores: { type: ["integer", "null"] },
+            total_condensadores: { type: ["integer", "null"] },
+            capacidade_total_kcal_h: { type: ["number", "null"] },
+            potencia_total_hp: { type: ["number", "null"] },
+            gases_refrigerantes: { type: "array", items: { type: "string" } },
+            tipos_compressor: { type: "array", items: { type: "string" } },
+            tipo_sistema: { type: ["string", "null"] },
+          },
+        },
+
+        // F — CÁLCULO TÉRMICO
+        calculo_carga_termica: {
+          type: "object",
+          properties: {
+            metodologia: { type: ["string", "null"] },
+            fatores_considerados: { type: "array", items: { type: "string" } },
+            margem_seguranca_pct: { type: ["number", "null"] },
+            software_utilizado: { type: ["string", "null"] },
+          },
+        },
+
+        // G — PADRÃO ESTRATÉGICO
+        padrao_camara: {
+          type: ["string", "null"],
+          description: "Assinatura única ex: '0°C | 250m³ | PIR-100 | Resfriados'",
+        },
+
+        // Bloco D taxonomia
+        taxonomia_blocos: { type: "array", items: { type: "object", properties: {
+          bloco: { type: "string" }, categoria: { type: "string" },
+          pagina: { type: ["integer", "null"] }, evidencia: { type: ["string", "null"] },
+        } } },
+
+        // Bloco E resumos
         resumo_executivo: { type: ["string", "null"] },
         resumo_tecnico: { type: ["string", "null"] },
         resumo_comercial: { type: ["string", "null"] },
@@ -121,35 +207,17 @@ const TOOL_SCHEMA = {
         padrao_tecnico: { type: ["string", "null"] },
         insights_benchmarking: { type: ["string", "null"] },
 
-        // Bloco F
-        inferencias: {
-          type: "array",
-          items: {
-            type: "object",
-            properties: {
-              chave: { type: "string", description: "porte_projeto, indicio_fechamento, grau_padronizacao, agressividade_contratual, grau_personalizacao, maturidade_comercial, segmento_cliente" },
-              valor: { type: "string" },
-              evidencias: { type: "array", items: { type: "string" } },
-              confianca: { type: "number" },
-              justificativa: { type: ["string", "null"] },
-            },
-            required: ["chave", "valor", "confianca"],
-          },
-        },
+        inferencias: { type: "array", items: { type: "object", properties: {
+          chave: { type: "string" }, valor: { type: "string" },
+          evidencias: { type: "array", items: { type: "string" } },
+          confianca: { type: "number" }, justificativa: { type: ["string", "null"] },
+        }, required: ["chave", "valor", "confianca"] } },
 
-        // Conflitos
-        conflitos_documentais: {
-          type: "array",
-          items: {
-            type: "object",
-            properties: {
-              campo: { type: "string" },
-              trechos: { type: "array", items: { type: "string" } },
-              paginas: { type: "array", items: { type: "integer" } },
-              observacao: { type: ["string", "null"] },
-            },
-          },
-        },
+        conflitos_documentais: { type: "array", items: { type: "object", properties: {
+          campo: { type: "string" }, trechos: { type: "array", items: { type: "string" } },
+          paginas: { type: "array", items: { type: "integer" } },
+          observacao: { type: ["string", "null"] },
+        } } },
       },
       required: ["score_global"],
     },
@@ -170,7 +238,6 @@ Deno.serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not set");
 
-    // Authenticate caller
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return new Response(JSON.stringify({ error: "No auth" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
@@ -182,21 +249,18 @@ Deno.serve(async (req) => {
 
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Fetch document
     const { data: doc, error: docErr } = await admin
       .from("documents")
-      .select("id, owner_id, file_name, file_type, raw_text")
+      .select("id, owner_id, file_name, file_type, raw_text, client_id")
       .eq("id", documentId)
       .maybeSingle();
     if (docErr || !doc) throw new Error("Documento não encontrado");
     if (!doc.raw_text) throw new Error("Documento sem texto extraído. Reprocesse o upload primeiro.");
     if (doc.owner_id !== userRes.user.id) throw new Error("Sem permissão");
 
-    // Find linked proposal (optional)
-    const { data: prop } = await admin.from("proposals").select("id").eq("document_id", documentId).maybeSingle();
+    const { data: prop } = await admin.from("proposals").select("id, client_id").eq("document_id", documentId).maybeSingle();
 
-    // Truncate context
-    const MAX = 80000;
+    const MAX = 120000;
     const content = doc.raw_text.length > MAX ? doc.raw_text.slice(0, MAX) + "\n\n[...truncado...]" : doc.raw_text;
 
     const model = "google/gemini-3.1-pro-preview";
@@ -228,7 +292,79 @@ Deno.serve(async (req) => {
 
     const ex = JSON.parse(toolCall.function.arguments);
 
-    // Compute version
+    // ===== CLIENTE: merge não-destrutivo =====
+    let resolvedClientId: string | null = doc.client_id || prop?.client_id || null;
+    const c = ex.cliente || {};
+    if (c && (c.nome || c.razao_social || c.cnpj)) {
+      // Try match by CNPJ first, then by name
+      let existing: { id: string } | null = null;
+      if (c.cnpj) {
+        const { data } = await admin.from("clients").select("id").eq("owner_id", doc.owner_id).eq("cnpj", c.cnpj).maybeSingle();
+        if (data) existing = data;
+      }
+      if (!existing && (c.nome || c.razao_social)) {
+        const nome = c.nome || c.razao_social;
+        const { data } = await admin.from("clients").select("id").eq("owner_id", doc.owner_id).ilike("nome", nome).maybeSingle();
+        if (data) existing = data;
+      }
+      if (!existing && resolvedClientId) {
+        existing = { id: resolvedClientId };
+      }
+
+      const patch: Record<string, any> = {};
+      const setIf = (k: string, v: any) => { if (v != null && v !== "") patch[k] = v; };
+      setIf("nome", c.nome || c.razao_social);
+      setIf("razao_social", c.razao_social);
+      setIf("cnpj", c.cnpj);
+      setIf("email", c.email);
+      setIf("telefone", c.telefone);
+      setIf("whatsapp", c.whatsapp);
+      setIf("endereco", c.endereco);
+      setIf("bairro", c.bairro);
+      setIf("cidade", c.cidade);
+      setIf("estado", c.estado);
+      setIf("cep", c.cep);
+      setIf("contato_nome", c.contato_nome);
+      setIf("contato_cargo", c.contato_cargo);
+      setIf("site", c.site);
+      setIf("segmento", c.segmento);
+
+      if (existing) {
+        // Merge: only fill missing fields (don't overwrite user edits)
+        const { data: cur } = await admin.from("clients").select("*").eq("id", existing.id).maybeSingle();
+        const mergePatch: Record<string, any> = {};
+        for (const [k, v] of Object.entries(patch)) {
+          if (v != null && (cur?.[k] == null || cur[k] === "")) mergePatch[k] = v;
+        }
+        if (Object.keys(mergePatch).length) {
+          await admin.from("clients").update(mergePatch).eq("id", existing.id);
+        }
+        resolvedClientId = existing.id;
+      } else if (patch.nome) {
+        const { data: created } = await admin.from("clients").insert({ ...patch, owner_id: doc.owner_id }).select("id").single();
+        resolvedClientId = created?.id || null;
+      }
+    }
+
+    // Update document + proposal client + deep technical analysis
+    if (resolvedClientId) {
+      await admin.from("documents").update({ client_id: resolvedClientId }).eq("id", documentId);
+    }
+
+    if (prop?.id) {
+      const propUpdate: Record<string, any> = {
+        analise_tecnica_profunda: {
+          camaras: ex.camaras || [],
+          equipamentos_resumo: ex.equipamentos_resumo || {},
+          calculo_carga_termica: ex.calculo_carga_termica || {},
+        },
+        padrao_camara: ex.padrao_camara || null,
+      };
+      if (resolvedClientId) propUpdate.client_id = resolvedClientId;
+      await admin.from("proposals").update(propUpdate).eq("id", prop.id);
+    }
+
+    // Versioned forensic record
     const { data: prev } = await admin
       .from("forensic_analyses")
       .select("versao")
@@ -276,7 +412,7 @@ Deno.serve(async (req) => {
 
     await admin.from("documents").update({ tem_analise_forense: true }).eq("id", documentId);
 
-    return new Response(JSON.stringify({ analysis: inserted }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ analysis: inserted, versao, padrao_camara: ex.padrao_camara }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error("forensic-analyze error", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
