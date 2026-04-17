@@ -124,7 +124,7 @@ export async function updateProposalField(
   oldValue: unknown,
   newValue: unknown,
 ) {
-  const patch = { [fieldName]: newValue } as Record<string, unknown>;
+  const patch: any = { [fieldName]: newValue };
 
   const { error } = await supabase.from("proposals").update(patch).eq("id", proposalId);
   if (error) throw error;

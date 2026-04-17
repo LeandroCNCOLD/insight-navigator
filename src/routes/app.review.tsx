@@ -125,7 +125,7 @@ function ReviewCenterPage() {
       <div className="p-6">
         <PageHeader
           title="Central de Revisão"
-          subtitle="Validação humana das propostas extraídas pela IA"
+          description="Validação humana das propostas extraídas pela IA"
         />
         <Card className="p-8 text-sm text-muted-foreground">Carregando fila de revisão...</Card>
       </div>
@@ -137,12 +137,12 @@ function ReviewCenterPage() {
       <div className="p-6 space-y-6">
         <PageHeader
           title="Central de Revisão"
-          subtitle="Validação humana das propostas extraídas pela IA"
+          description="Validação humana das propostas extraídas pela IA"
         />
         <EmptyState
           icon={ClipboardCheck}
           title="Nenhuma proposta precisa de revisão agora"
-          subtitle="Quando a extração gerar baixa confiança, os itens aparecerão aqui."
+          description="Quando a extração gerar baixa confiança, os itens aparecerão aqui."
           action={
             <Link to="/app/proposals">
               <Button>Ir para propostas</Button>
@@ -157,8 +157,8 @@ function ReviewCenterPage() {
     <div className="p-6 space-y-6">
       <PageHeader
         title="Central de Revisão"
-        subtitle="Aprove, ajuste, rejeite ou peça reprocessamento das propostas com baixa confiança"
-        actions={
+        description="Aprove, ajuste, rejeite ou peça reprocessamento das propostas com baixa confiança"
+        action={
           <div className="flex items-center gap-2">
             <Link to="/app/proposals">
               <Button variant="outline">Ver propostas</Button>
