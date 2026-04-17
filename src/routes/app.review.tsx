@@ -24,7 +24,7 @@ function Review() {
   });
 
   const update = async (id: string, field: string, value: any) => {
-    const { error } = await supabase.from("proposals").update({ [field]: value }).eq("id", id);
+    const { error } = await supabase.from("proposals").update({ [field]: value } as any).eq("id", id);
     if (error) return toast.error(error.message);
     toast.success("Atualizado");
     qc.invalidateQueries();
