@@ -251,17 +251,61 @@ Deno.serve(async (req) => {
 
     const { data: doc, error: docErr } = await admin
       .from("documents")
-      .select("id, owner_id, file_name, file_type, raw_text, client_id")
+      .select("id, owner_id, file_name, file_type, file_path, raw_text, client_id")
       .eq("id", documentId)
       .maybeSingle();
     if (docErr || !doc) throw new Error("Documento não encontrado");
-    if (!doc.raw_text) throw new Error("Documento sem texto extraído. Reprocesse o upload primeiro.");
     if (doc.owner_id !== userRes.user.id) throw new Error("Sem permissão");
+
+    // Self-healing: if raw_text missing, OCR via Gemini Vision through the Lovable AI gateway
+    let rawText = doc.raw_text || "";
+    if (!rawText || rawText.replace(/\s+/g, " ").trim().length < 50) {
+      console.log(`raw_text ausente para ${documentId}, tentando OCR via Vision API`);
+      const { data: blob, error: dlErr } = await admin.storage.from("documents").download(doc.file_path);
+      if (dlErr || !blob) throw new Error("Falha ao baixar arquivo do storage");
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+      let binary = "";
+      const chunk = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunk) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+      }
+      const base64 = btoa(binary);
+      const mime = doc.file_type === "pdf" ? "application/pdf"
+        : doc.file_type === "docx" ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        : doc.file_type === "xlsx" ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        : (blob.type || "application/octet-stream");
+      const dataUrl = `data:${mime};base64,${base64}`;
+      const visionRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [{
+            role: "user",
+            content: [
+              { type: "text", text: "Extraia TODO o texto deste documento preservando a ordem das páginas. Marque cada página como [PÁGINA N]. Retorne APENAS o texto bruto, sem comentários." },
+              { type: "image_url", image_url: { url: dataUrl } },
+            ],
+          }],
+        }),
+      });
+      if (!visionRes.ok) {
+        const errText = await visionRes.text();
+        console.error("Vision OCR falhou", visionRes.status, errText);
+        throw new Error("Falha ao extrair texto do arquivo via OCR");
+      }
+      const visionData = await visionRes.json();
+      rawText = visionData.choices?.[0]?.message?.content || "";
+      if (!rawText || rawText.trim().length < 50) {
+        throw new Error("OCR não conseguiu extrair texto suficiente do documento");
+      }
+      await admin.from("documents").update({ raw_text: rawText.slice(0, 200000) }).eq("id", doc.id);
+    }
 
     const { data: prop } = await admin.from("proposals").select("id, client_id").eq("document_id", documentId).maybeSingle();
 
     const MAX = 120000;
-    const content = doc.raw_text.length > MAX ? doc.raw_text.slice(0, MAX) + "\n\n[...truncado...]" : doc.raw_text;
+    const content = rawText.length > MAX ? rawText.slice(0, MAX) + "\n\n[...truncado...]" : rawText;
 
     const model = "google/gemini-3.1-pro-preview";
     const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
