@@ -14,16 +14,659 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      audit_logs: {
+        Row: {
+          acao: string
+          created_at: string
+          entidade: string | null
+          entidade_id: string | null
+          id: string
+          payload: Json | null
+          user_id: string | null
+        }
+        Insert: {
+          acao: string
+          created_at?: string
+          entidade?: string | null
+          entidade_id?: string | null
+          id?: string
+          payload?: Json | null
+          user_id?: string | null
+        }
+        Update: {
+          acao?: string
+          created_at?: string
+          entidade?: string | null
+          entidade_id?: string | null
+          id?: string
+          payload?: Json | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      chat_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          metadata: Json | null
+          owner_id: string
+          role: string
+          session_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          owner_id: string
+          role: string
+          session_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          owner_id?: string
+          role?: string
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "chat_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_sessions: {
+        Row: {
+          created_at: string
+          id: string
+          owner_id: string
+          titulo: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          owner_id: string
+          titulo?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          owner_id?: string
+          titulo?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      clients: {
+        Row: {
+          cidade: string | null
+          created_at: string
+          estado: string | null
+          id: string
+          nome: string
+          owner_id: string
+          razao_social: string | null
+          segmento: string | null
+          updated_at: string
+        }
+        Insert: {
+          cidade?: string | null
+          created_at?: string
+          estado?: string | null
+          id?: string
+          nome: string
+          owner_id: string
+          razao_social?: string | null
+          segmento?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cidade?: string | null
+          created_at?: string
+          estado?: string | null
+          id?: string
+          nome?: string
+          owner_id?: string
+          razao_social?: string | null
+          segmento?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      competitors: {
+        Row: {
+          created_at: string
+          descricao: string | null
+          id: string
+          logo_url: string | null
+          nome: string
+          owner_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          logo_url?: string | null
+          nome: string
+          owner_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          logo_url?: string | null
+          nome?: string
+          owner_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      dictionaries: {
+        Row: {
+          categoria: string
+          created_at: string
+          id: string
+          owner_id: string
+          sinonimos: string[] | null
+          termo: string
+          valor_canonico: string
+        }
+        Insert: {
+          categoria: string
+          created_at?: string
+          id?: string
+          owner_id: string
+          sinonimos?: string[] | null
+          termo: string
+          valor_canonico: string
+        }
+        Update: {
+          categoria?: string
+          created_at?: string
+          id?: string
+          owner_id?: string
+          sinonimos?: string[] | null
+          termo?: string
+          valor_canonico?: string
+        }
+        Relationships: []
+      }
+      documents: {
+        Row: {
+          ano: number | null
+          client_id: string | null
+          competitor_id: string | null
+          created_at: string
+          error_message: string | null
+          file_name: string
+          file_path: string
+          file_size: number | null
+          file_type: string
+          id: string
+          owner_id: string
+          raw_text: string | null
+          status: Database["public"]["Enums"]["document_status"]
+          tags: string[] | null
+          tipo_documental: string | null
+          updated_at: string
+        }
+        Insert: {
+          ano?: number | null
+          client_id?: string | null
+          competitor_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          file_type: string
+          id?: string
+          owner_id: string
+          raw_text?: string | null
+          status?: Database["public"]["Enums"]["document_status"]
+          tags?: string[] | null
+          tipo_documental?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ano?: number | null
+          client_id?: string | null
+          competitor_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          file_type?: string
+          id?: string
+          owner_id?: string
+          raw_text?: string | null
+          status?: Database["public"]["Enums"]["document_status"]
+          tags?: string[] | null
+          tipo_documental?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documents_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_competitor_id_fkey"
+            columns: ["competitor_id"]
+            isOneToOne: false
+            referencedRelation: "competitors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      equipments: {
+        Row: {
+          capacidade_kcal: number | null
+          compressor: string | null
+          created_at: string
+          gas_refrigerante: string | null
+          id: string
+          marca: string | null
+          modelo: string | null
+          observacoes: string | null
+          owner_id: string
+          potencia_hp: number | null
+          proposal_id: string
+          quantidade: number | null
+          tipo: string | null
+          tipo_condensacao: string | null
+          tipo_degelo: string | null
+          valor_unitario: number | null
+        }
+        Insert: {
+          capacidade_kcal?: number | null
+          compressor?: string | null
+          created_at?: string
+          gas_refrigerante?: string | null
+          id?: string
+          marca?: string | null
+          modelo?: string | null
+          observacoes?: string | null
+          owner_id: string
+          potencia_hp?: number | null
+          proposal_id: string
+          quantidade?: number | null
+          tipo?: string | null
+          tipo_condensacao?: string | null
+          tipo_degelo?: string | null
+          valor_unitario?: number | null
+        }
+        Update: {
+          capacidade_kcal?: number | null
+          compressor?: string | null
+          created_at?: string
+          gas_refrigerante?: string | null
+          id?: string
+          marca?: string | null
+          modelo?: string | null
+          observacoes?: string | null
+          owner_id?: string
+          potencia_hp?: number | null
+          proposal_id?: string
+          quantidade?: number | null
+          tipo?: string | null
+          tipo_condensacao?: string | null
+          tipo_degelo?: string | null
+          valor_unitario?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipments_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      evidences: {
+        Row: {
+          campo: string
+          created_at: string
+          document_id: string
+          id: string
+          owner_id: string
+          pagina: number | null
+          proposal_id: string | null
+          score_confianca: number | null
+          status: string | null
+          trecho: string | null
+          validado_em: string | null
+          validado_por: string | null
+          valor_extraido: string | null
+        }
+        Insert: {
+          campo: string
+          created_at?: string
+          document_id: string
+          id?: string
+          owner_id: string
+          pagina?: number | null
+          proposal_id?: string | null
+          score_confianca?: number | null
+          status?: string | null
+          trecho?: string | null
+          validado_em?: string | null
+          validado_por?: string | null
+          valor_extraido?: string | null
+        }
+        Update: {
+          campo?: string
+          created_at?: string
+          document_id?: string
+          id?: string
+          owner_id?: string
+          pagina?: number | null
+          proposal_id?: string | null
+          score_confianca?: number | null
+          status?: string | null
+          trecho?: string | null
+          validado_em?: string | null
+          validado_por?: string | null
+          valor_extraido?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "evidences_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evidences_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      insights: {
+        Row: {
+          created_at: string
+          dados: Json | null
+          descricao: string | null
+          id: string
+          owner_id: string
+          severidade: string | null
+          tipo: string
+          titulo: string
+        }
+        Insert: {
+          created_at?: string
+          dados?: Json | null
+          descricao?: string | null
+          id?: string
+          owner_id: string
+          severidade?: string | null
+          tipo: string
+          titulo: string
+        }
+        Update: {
+          created_at?: string
+          dados?: Json | null
+          descricao?: string | null
+          id?: string
+          owner_id?: string
+          severidade?: string | null
+          tipo?: string
+          titulo?: string
+        }
+        Relationships: []
+      }
+      processing_queue: {
+        Row: {
+          attempts: number | null
+          created_at: string
+          document_id: string
+          error_message: string | null
+          finished_at: string | null
+          id: string
+          owner_id: string
+          started_at: string | null
+          status: string
+        }
+        Insert: {
+          attempts?: number | null
+          created_at?: string
+          document_id: string
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          owner_id: string
+          started_at?: string | null
+          status?: string
+        }
+        Update: {
+          attempts?: number | null
+          created_at?: string
+          document_id?: string
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          owner_id?: string
+          started_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "processing_queue_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      proposals: {
+        Row: {
+          clausulas: Json | null
+          client_id: string | null
+          competitor_id: string | null
+          condicao_pagamento: string | null
+          created_at: string
+          dados_tecnicos: Json | null
+          data_proposta: string | null
+          document_id: string
+          frete_incluso: boolean | null
+          frete_tipo: string | null
+          garantia_limitacoes: string | null
+          garantia_meses: number | null
+          id: string
+          instalacao_inclusa: boolean | null
+          numero: string | null
+          observacoes: string | null
+          owner_id: string
+          parcelas: number | null
+          prazo_entrega_dias: number | null
+          prazo_fabricacao_dias: number | null
+          prazo_instalacao_dias: number | null
+          representante_legal: string | null
+          riscos: string | null
+          score_confianca: number | null
+          status_proposta: string | null
+          tem_assinatura: boolean | null
+          updated_at: string
+          valor_total: number | null
+          vendedor: string | null
+        }
+        Insert: {
+          clausulas?: Json | null
+          client_id?: string | null
+          competitor_id?: string | null
+          condicao_pagamento?: string | null
+          created_at?: string
+          dados_tecnicos?: Json | null
+          data_proposta?: string | null
+          document_id: string
+          frete_incluso?: boolean | null
+          frete_tipo?: string | null
+          garantia_limitacoes?: string | null
+          garantia_meses?: number | null
+          id?: string
+          instalacao_inclusa?: boolean | null
+          numero?: string | null
+          observacoes?: string | null
+          owner_id: string
+          parcelas?: number | null
+          prazo_entrega_dias?: number | null
+          prazo_fabricacao_dias?: number | null
+          prazo_instalacao_dias?: number | null
+          representante_legal?: string | null
+          riscos?: string | null
+          score_confianca?: number | null
+          status_proposta?: string | null
+          tem_assinatura?: boolean | null
+          updated_at?: string
+          valor_total?: number | null
+          vendedor?: string | null
+        }
+        Update: {
+          clausulas?: Json | null
+          client_id?: string | null
+          competitor_id?: string | null
+          condicao_pagamento?: string | null
+          created_at?: string
+          dados_tecnicos?: Json | null
+          data_proposta?: string | null
+          document_id?: string
+          frete_incluso?: boolean | null
+          frete_tipo?: string | null
+          garantia_limitacoes?: string | null
+          garantia_meses?: number | null
+          id?: string
+          instalacao_inclusa?: boolean | null
+          numero?: string | null
+          observacoes?: string | null
+          owner_id?: string
+          parcelas?: number | null
+          prazo_entrega_dias?: number | null
+          prazo_fabricacao_dias?: number | null
+          prazo_instalacao_dias?: number | null
+          representante_legal?: string | null
+          riscos?: string | null
+          score_confianca?: number | null
+          status_proposta?: string | null
+          tem_assinatura?: boolean | null
+          updated_at?: string
+          valor_total?: number | null
+          vendedor?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proposals_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposals_competitor_id_fkey"
+            columns: ["competitor_id"]
+            isOneToOne: false
+            referencedRelation: "competitors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposals_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "analyst" | "viewer"
+      document_status:
+        | "uploaded"
+        | "queued"
+        | "processing"
+        | "extracted"
+        | "failed"
+        | "archived"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +793,16 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "analyst", "viewer"],
+      document_status: [
+        "uploaded",
+        "queued",
+        "processing",
+        "extracted",
+        "failed",
+        "archived",
+      ],
+    },
   },
 } as const
