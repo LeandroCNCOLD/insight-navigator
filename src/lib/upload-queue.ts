@@ -148,9 +148,9 @@ class UploadQueue {
 
       // 1) Upload to storage
       this.update(it.id, { status: "uploading" });
-      const dotIdx = it.file.name.lastIndexOf(".");
-      const baseName = dotIdx > 0 ? it.file.name.slice(0, dotIdx) : it.file.name;
-      const extName = dotIdx > 0 ? it.file.name.slice(dotIdx) : "";
+      const dotIdx = file.name.lastIndexOf(".");
+      const baseName = dotIdx > 0 ? file.name.slice(0, dotIdx) : file.name;
+      const extName = dotIdx > 0 ? file.name.slice(dotIdx) : "";
       const safeBase =
         baseName
           .normalize("NFD")
@@ -163,26 +163,25 @@ class UploadQueue {
       const path = `${u.user.id}/${Date.now()}-${safeBase}${safeExt}`;
       const { error: upErr } = await supabase.storage
         .from("documents")
-        .upload(path, it.file, { upsert: false });
+        .upload(path, file, { upsert: false });
       if (upErr) throw upErr;
 
       // 2) Insert document row with hash
-      const ext = it.file.name.split(".").pop()?.toLowerCase() || "";
+      const ext = file.name.split(".").pop()?.toLowerCase() || "";
       const { data: doc, error: docErr } = await supabase
         .from("documents")
         .insert({
           owner_id: u.user.id,
           file_path: path,
-          file_name: it.file.name,
+          file_name: file.name,
           file_type: ext,
-          file_size: it.file.size,
+          file_size: file.size,
           file_hash: fileHash,
           status: "processing",
         })
         .select()
         .single();
       if (docErr) {
-        // Race: another upload created same hash — treat as duplicate
         if (docErr.code === "23505") {
           this.update(it.id, { status: "duplicate", message: "Já enviado anteriormente" });
           return;
@@ -193,7 +192,7 @@ class UploadQueue {
 
       // 3) Parse text
       this.update(it.id, { status: "parsing" });
-      const parsed = await parseDocument(it.file);
+      const parsed = await parseDocument(file);
       if (!parsed.text) throw new Error("Não foi possível extrair texto do documento");
 
       await supabase
