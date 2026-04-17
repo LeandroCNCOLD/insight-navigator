@@ -1,0 +1,2 @@
+ALTER TABLE public.documents ADD COLUMN IF NOT EXISTS file_hash text;
+CREATE UNIQUE INDEX IF NOT EXISTS documents_owner_hash_unique ON public.documents(owner_id, file_hash) WHERE file_hash IS NOT NULL;
