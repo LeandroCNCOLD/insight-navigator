@@ -108,37 +108,70 @@ export type Database = {
       }
       clients: {
         Row: {
+          bairro: string | null
+          cep: string | null
           cidade: string | null
+          cnpj: string | null
+          contato_cargo: string | null
+          contato_nome: string | null
           created_at: string
+          email: string | null
+          endereco: string | null
           estado: string | null
           id: string
           nome: string
+          notas: string | null
           owner_id: string
           razao_social: string | null
           segmento: string | null
+          site: string | null
+          telefone: string | null
           updated_at: string
+          whatsapp: string | null
         }
         Insert: {
+          bairro?: string | null
+          cep?: string | null
           cidade?: string | null
+          cnpj?: string | null
+          contato_cargo?: string | null
+          contato_nome?: string | null
           created_at?: string
+          email?: string | null
+          endereco?: string | null
           estado?: string | null
           id?: string
           nome: string
+          notas?: string | null
           owner_id: string
           razao_social?: string | null
           segmento?: string | null
+          site?: string | null
+          telefone?: string | null
           updated_at?: string
+          whatsapp?: string | null
         }
         Update: {
+          bairro?: string | null
+          cep?: string | null
           cidade?: string | null
+          cnpj?: string | null
+          contato_cargo?: string | null
+          contato_nome?: string | null
           created_at?: string
+          email?: string | null
+          endereco?: string | null
           estado?: string | null
           id?: string
           nome?: string
+          notas?: string | null
           owner_id?: string
           razao_social?: string | null
           segmento?: string | null
+          site?: string | null
+          telefone?: string | null
           updated_at?: string
+          whatsapp?: string | null
         }
         Relationships: []
       }
@@ -646,6 +679,7 @@ export type Database = {
       }
       proposals: {
         Row: {
+          analise_tecnica_profunda: Json | null
           clausulas: Json | null
           client_id: string | null
           competitor_id: string | null
@@ -667,6 +701,7 @@ export type Database = {
           numero: string | null
           observacoes: string | null
           owner_id: string
+          padrao_camara: string | null
           palavras_chave: string[] | null
           parcelas: number | null
           porte_projeto: string | null
@@ -687,6 +722,7 @@ export type Database = {
           vendedor: string | null
         }
         Insert: {
+          analise_tecnica_profunda?: Json | null
           clausulas?: Json | null
           client_id?: string | null
           competitor_id?: string | null
@@ -708,6 +744,7 @@ export type Database = {
           numero?: string | null
           observacoes?: string | null
           owner_id: string
+          padrao_camara?: string | null
           palavras_chave?: string[] | null
           parcelas?: number | null
           porte_projeto?: string | null
@@ -728,6 +765,7 @@ export type Database = {
           vendedor?: string | null
         }
         Update: {
+          analise_tecnica_profunda?: Json | null
           clausulas?: Json | null
           client_id?: string | null
           competitor_id?: string | null
@@ -749,6 +787,7 @@ export type Database = {
           numero?: string | null
           observacoes?: string | null
           owner_id?: string
+          padrao_camara?: string | null
           palavras_chave?: string[] | null
           parcelas?: number | null
           porte_projeto?: string | null
