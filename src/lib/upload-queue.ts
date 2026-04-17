@@ -35,6 +35,8 @@ class UploadQueue {
   private items: QueueItem[] = [];
   private listeners = new Set<Listener>();
   private running = false;
+  private concurrency = 10;
+  private activeIds = new Set<string>();
 
   subscribe(fn: Listener) {
     this.listeners.add(fn);
@@ -53,6 +55,10 @@ class UploadQueue {
 
   isRunning() {
     return this.running;
+  }
+
+  setConcurrency(n: number) {
+    this.concurrency = Math.max(1, Math.min(20, Math.floor(n)));
   }
 
   add(files: File[]) {
@@ -413,13 +419,37 @@ class UploadQueue {
     this.running = true;
     this.emit();
     try {
-      // Process sequentially to avoid hammering the AI gateway
+      // Process in parallel blocks (default 10) to keep things fast without
+      // overwhelming the AI gateway / browser.
       while (true) {
-        const next = this.items.find((it) => it.status === "pending" || it.status === "error");
-        if (!next) break;
-        // Reset error items so retry works
-        if (next.status === "error") this.update(next.id, { status: "pending", message: undefined });
-        await this.processOne(next);
+        const slots = this.concurrency - this.activeIds.size;
+        if (slots <= 0) {
+          // wait a tick for one of the active ones to finish
+          await new Promise((r) => setTimeout(r, 80));
+          continue;
+        }
+        const ready = this.items
+          .filter(
+            (it) =>
+              !this.activeIds.has(it.id) &&
+              (it.status === "pending" || it.status === "error"),
+          )
+          .slice(0, slots);
+        if (!ready.length && this.activeIds.size === 0) break;
+        if (!ready.length) {
+          await new Promise((r) => setTimeout(r, 80));
+          continue;
+        }
+        for (const next of ready) {
+          if (next.status === "error") {
+            this.update(next.id, { status: "pending", message: undefined });
+          }
+          this.activeIds.add(next.id);
+          // Fire and track without awaiting so the loop fills the next slot.
+          void this.processOne(next).finally(() => {
+            this.activeIds.delete(next.id);
+          });
+        }
       }
     } finally {
       this.running = false;
