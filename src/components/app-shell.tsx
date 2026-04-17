@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-const nav = [
+type NavItem = { to: string; label: string; icon: typeof LayoutDashboard; exact?: boolean };
+const nav: { section: string; items: NavItem[] }[] = [
   { section: "Visão geral", items: [
     { to: "/app", label: "Dashboard", icon: LayoutDashboard, exact: true },
   ]},
