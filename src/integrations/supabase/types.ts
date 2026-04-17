@@ -219,6 +219,7 @@ export type Database = {
           resumo_executivo: string | null
           status: Database["public"]["Enums"]["document_status"]
           tags: string[] | null
+          tem_analise_forense: boolean | null
           tipo_documental: string | null
           updated_at: string
         }
@@ -238,6 +239,7 @@ export type Database = {
           resumo_executivo?: string | null
           status?: Database["public"]["Enums"]["document_status"]
           tags?: string[] | null
+          tem_analise_forense?: boolean | null
           tipo_documental?: string | null
           updated_at?: string
         }
@@ -257,6 +259,7 @@ export type Database = {
           resumo_executivo?: string | null
           status?: Database["public"]["Enums"]["document_status"]
           tags?: string[] | null
+          tem_analise_forense?: boolean | null
           tipo_documental?: string | null
           updated_at?: string
         }
@@ -398,6 +401,135 @@ export type Database = {
           },
           {
             foreignKeyName: "evidences_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      forensic_analyses: {
+        Row: {
+          cabecalhos: Json | null
+          campos_literais: Json | null
+          conflitos_documentais: Json | null
+          created_at: string
+          document_id: string
+          id: string
+          indice_paginas: Json | null
+          inferencias: Json | null
+          insights_benchmarking: string | null
+          modelo_ia: string | null
+          owner_id: string
+          padrao_garantia: string | null
+          padrao_pagamento: string | null
+          padrao_posicionamento: string | null
+          padrao_tecnico: string | null
+          padrao_transferencia_risco: string | null
+          proposal_id: string | null
+          resumo_comercial: string | null
+          resumo_contratual: string | null
+          resumo_executivo: string | null
+          resumo_tecnico: string | null
+          riscos_juridicos: string | null
+          riscos_operacionais: string | null
+          rodapes: Json | null
+          score_global: number | null
+          secoes: Json | null
+          taxonomia_blocos: Json | null
+          tem_assinatura: boolean | null
+          tem_carimbo: boolean | null
+          tem_docusign: boolean | null
+          tem_formulario: boolean | null
+          tem_tabelas: boolean | null
+          tipo_documento: string | null
+          updated_at: string
+          versao: number
+        }
+        Insert: {
+          cabecalhos?: Json | null
+          campos_literais?: Json | null
+          conflitos_documentais?: Json | null
+          created_at?: string
+          document_id: string
+          id?: string
+          indice_paginas?: Json | null
+          inferencias?: Json | null
+          insights_benchmarking?: string | null
+          modelo_ia?: string | null
+          owner_id: string
+          padrao_garantia?: string | null
+          padrao_pagamento?: string | null
+          padrao_posicionamento?: string | null
+          padrao_tecnico?: string | null
+          padrao_transferencia_risco?: string | null
+          proposal_id?: string | null
+          resumo_comercial?: string | null
+          resumo_contratual?: string | null
+          resumo_executivo?: string | null
+          resumo_tecnico?: string | null
+          riscos_juridicos?: string | null
+          riscos_operacionais?: string | null
+          rodapes?: Json | null
+          score_global?: number | null
+          secoes?: Json | null
+          taxonomia_blocos?: Json | null
+          tem_assinatura?: boolean | null
+          tem_carimbo?: boolean | null
+          tem_docusign?: boolean | null
+          tem_formulario?: boolean | null
+          tem_tabelas?: boolean | null
+          tipo_documento?: string | null
+          updated_at?: string
+          versao?: number
+        }
+        Update: {
+          cabecalhos?: Json | null
+          campos_literais?: Json | null
+          conflitos_documentais?: Json | null
+          created_at?: string
+          document_id?: string
+          id?: string
+          indice_paginas?: Json | null
+          inferencias?: Json | null
+          insights_benchmarking?: string | null
+          modelo_ia?: string | null
+          owner_id?: string
+          padrao_garantia?: string | null
+          padrao_pagamento?: string | null
+          padrao_posicionamento?: string | null
+          padrao_tecnico?: string | null
+          padrao_transferencia_risco?: string | null
+          proposal_id?: string | null
+          resumo_comercial?: string | null
+          resumo_contratual?: string | null
+          resumo_executivo?: string | null
+          resumo_tecnico?: string | null
+          riscos_juridicos?: string | null
+          riscos_operacionais?: string | null
+          rodapes?: Json | null
+          score_global?: number | null
+          secoes?: Json | null
+          taxonomia_blocos?: Json | null
+          tem_assinatura?: boolean | null
+          tem_carimbo?: boolean | null
+          tem_docusign?: boolean | null
+          tem_formulario?: boolean | null
+          tem_tabelas?: boolean | null
+          tipo_documento?: string | null
+          updated_at?: string
+          versao?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "forensic_analyses_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "forensic_analyses_proposal_id_fkey"
             columns: ["proposal_id"]
             isOneToOne: false
             referencedRelation: "proposals"
