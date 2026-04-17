@@ -15,10 +15,12 @@ export type QueueStatus =
 
 export type QueueItem = {
   id: string;
-  file: File;
+  file: File | null;
+  fileName: string;
   status: QueueStatus;
   message?: string;
   documentId?: string;
+  kind?: "upload" | "reprocess";
 };
 
 type Listener = (items: QueueItem[]) => void;
@@ -51,9 +53,32 @@ class UploadQueue {
     const newOnes: QueueItem[] = files.map((f) => ({
       id: crypto.randomUUID(),
       file: f,
+      fileName: f.name,
       status: "pending",
+      kind: "upload",
     }));
     this.items = [...this.items, ...newOnes];
+    this.emit();
+  }
+
+  reprocess(documentId: string, fileName: string) {
+    // Avoid duplicate reprocess in queue
+    const already = this.items.find(
+      (it) => it.kind === "reprocess" && it.documentId === documentId &&
+        ["pending", "extracting", "saving"].includes(it.status),
+    );
+    if (already) return;
+    this.items = [
+      ...this.items,
+      {
+        id: crypto.randomUUID(),
+        file: null,
+        fileName,
+        documentId,
+        status: "pending",
+        kind: "reprocess",
+      },
+    ];
     this.emit();
   }
 
@@ -78,13 +103,33 @@ class UploadQueue {
       .join("");
   }
 
+  private async processReprocess(it: QueueItem) {
+    if (!it.documentId) throw new Error("documentId ausente para reprocessar");
+    this.update(it.id, { status: "extracting", message: "Análise forense profunda…" });
+    const { data, error } = await supabase.functions.invoke("forensic-analyze", {
+      body: { documentId: it.documentId },
+    });
+    if (error) throw new Error(error.message);
+    if (data?.error) throw new Error(data.error);
+    this.update(it.id, {
+      status: "done",
+      message: data?.padrao_camara ? `Padrão: ${data.padrao_camara}` : "Reprocessado",
+    });
+  }
+
   private async processOne(it: QueueItem) {
     try {
+      if (it.kind === "reprocess") {
+        await this.processReprocess(it);
+        return;
+      }
+      if (!it.file) throw new Error("Arquivo ausente");
+      const file = it.file;
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Não autenticado");
 
       // Dedup: hash file and check existing
-      const fileHash = await this.hashFile(it.file);
+      const fileHash = await this.hashFile(file);
       const { data: existing } = await supabase
         .from("documents")
         .select("id, status")
@@ -103,9 +148,9 @@ class UploadQueue {
 
       // 1) Upload to storage
       this.update(it.id, { status: "uploading" });
-      const dotIdx = it.file.name.lastIndexOf(".");
-      const baseName = dotIdx > 0 ? it.file.name.slice(0, dotIdx) : it.file.name;
-      const extName = dotIdx > 0 ? it.file.name.slice(dotIdx) : "";
+      const dotIdx = file.name.lastIndexOf(".");
+      const baseName = dotIdx > 0 ? file.name.slice(0, dotIdx) : file.name;
+      const extName = dotIdx > 0 ? file.name.slice(dotIdx) : "";
       const safeBase =
         baseName
           .normalize("NFD")
@@ -118,26 +163,25 @@ class UploadQueue {
       const path = `${u.user.id}/${Date.now()}-${safeBase}${safeExt}`;
       const { error: upErr } = await supabase.storage
         .from("documents")
-        .upload(path, it.file, { upsert: false });
+        .upload(path, file, { upsert: false });
       if (upErr) throw upErr;
 
       // 2) Insert document row with hash
-      const ext = it.file.name.split(".").pop()?.toLowerCase() || "";
+      const ext = file.name.split(".").pop()?.toLowerCase() || "";
       const { data: doc, error: docErr } = await supabase
         .from("documents")
         .insert({
           owner_id: u.user.id,
           file_path: path,
-          file_name: it.file.name,
+          file_name: file.name,
           file_type: ext,
-          file_size: it.file.size,
+          file_size: file.size,
           file_hash: fileHash,
           status: "processing",
         })
         .select()
         .single();
       if (docErr) {
-        // Race: another upload created same hash — treat as duplicate
         if (docErr.code === "23505") {
           this.update(it.id, { status: "duplicate", message: "Já enviado anteriormente" });
           return;
@@ -148,7 +192,7 @@ class UploadQueue {
 
       // 3) Parse text
       this.update(it.id, { status: "parsing" });
-      const parsed = await parseDocument(it.file);
+      const parsed = await parseDocument(file);
       if (!parsed.text) throw new Error("Não foi possível extrair texto do documento");
 
       await supabase
@@ -159,7 +203,7 @@ class UploadQueue {
       // 4) AI extraction
       this.update(it.id, { status: "extracting" });
       const { data: ai, error: aiErr } = await supabase.functions.invoke("extract-document", {
-        body: { text: parsed.text, fileName: it.file.name, fileType: ext },
+        body: { text: parsed.text, fileName: file.name, fileType: ext },
       });
       if (aiErr) throw new Error(aiErr.message);
       if (ai?.error) throw new Error(ai.error);

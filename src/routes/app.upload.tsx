@@ -109,9 +109,9 @@ function UploadPage() {
               <div key={it.id} className="flex items-center gap-3 px-4 py-3">
                 <FileText className="size-4 text-muted-foreground shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm truncate">{it.file.name}</div>
+                  <div className="text-sm truncate">{it.fileName}{it.kind === "reprocess" && <span className="ml-2 text-[10px] uppercase tracking-wider text-primary">reprocessar</span>}</div>
                   <div className="text-xs text-muted-foreground">
-                    {formatBytes(it.file.size)} · {it.message || statusLabel(it.status)}
+                    {it.file ? `${formatBytes(it.file.size)} · ` : ""}{it.message || statusLabel(it.status)}
                   </div>
                 </div>
                 <StatusBadge status={it.status} />
