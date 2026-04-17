@@ -149,6 +149,75 @@ const TOOL_SCHEMA = {
   },
 };
 
+const MIN_TEXT_LENGTH = 120;
+
+function normalizeSpaces(value: string | null | undefined) {
+  return (value || "").replace(/\s+/g, " ").trim();
+}
+
+function hasMeaningfulText(value: string | null | undefined) {
+  return normalizeSpaces(value).length >= MIN_TEXT_LENGTH;
+}
+
+function normalizeExtraction(extracted: any) {
+  if (!extracted || typeof extracted !== "object") return extracted;
+  const evidencias = Array.isArray(extracted.evidencias) ? extracted.evidencias.filter((ev: any) => ev?.campo) : [];
+  return {
+    ...extracted,
+    palavras_chave: Array.isArray(extracted.palavras_chave) ? extracted.palavras_chave.filter(Boolean) : [],
+    equipamentos: Array.isArray(extracted.equipamentos) ? extracted.equipamentos.filter((item: any) => item && Object.values(item).some((v) => v != null && v !== "")) : [],
+    clausulas: Array.isArray(extracted.clausulas) ? extracted.clausulas.filter((item: any) => item?.tipo || item?.texto) : [],
+    evidencias,
+  };
+}
+
+function validateExtraction(extracted: any, sourceText: string) {
+  const text = normalizeSpaces(sourceText).toLowerCase();
+  const normalized = normalizeExtraction(extracted);
+  const cliente = normalizeSpaces(normalized?.cliente_nome || normalized?.cliente_razao_social);
+  const numero = normalizeSpaces(normalized?.numero);
+  const evidenceCount = Array.isArray(normalized?.evidencias) ? normalized.evidencias.length : 0;
+  const hasClient = !!cliente;
+  const hasCommercial = normalized?.valor_total != null || !!normalizeSpaces(normalized?.condicao_pagamento) || !!numero;
+  const hasTechnical = !!(
+    normalizeSpaces(normalized?.dados_tecnicos?.tipo_camara) ||
+    normalizeSpaces(normalized?.dados_tecnicos?.aplicacao) ||
+    normalizeSpaces(normalized?.dados_tecnicos?.produto_armazenado) ||
+    normalizeSpaces(normalized?.dados_tecnicos?.dimensoes) ||
+    normalizeSpaces(normalized?.dados_tecnicos?.isolamento) ||
+    normalized?.dados_tecnicos?.temperatura_alvo_c != null ||
+    normalized?.dados_tecnicos?.carga_termica_kcal != null ||
+    (Array.isArray(normalized?.equipamentos) && normalized.equipamentos.length > 0)
+  );
+
+  if (!hasClient && !hasCommercial && !hasTechnical) {
+    return { valid: false, reason: "IA não encontrou dados úteis suficientes" };
+  }
+
+  if (cliente) {
+    const compactClient = cliente.toLowerCase().replace(/\s+/g, "");
+    const compactText = text.replace(/\s+/g, "");
+    if (compactClient.length >= 6 && !compactText.includes(compactClient)) {
+      return { valid: false, reason: "Nome do cliente não aparece no texto fonte" };
+    }
+  }
+
+  if (numero) {
+    const compactNumber = numero.toLowerCase().replace(/\s+/g, "");
+    const compactText = text.replace(/\s+/g, "");
+    if (compactNumber.length >= 4 && !compactText.includes(compactNumber) && evidenceCount < 2) {
+      return { valid: false, reason: "Número da proposta sem evidência suficiente" };
+    }
+  }
+
+  const confidence = typeof normalized?.score_confianca === "number" ? normalized.score_confianca : 0;
+  if (confidence < 0.15 && evidenceCount < 2) {
+    return { valid: false, reason: "Baixa confiança geral sem evidências mínimas" };
+  }
+
+  return { valid: true, extracted: normalized };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -156,6 +225,9 @@ Deno.serve(async (req) => {
     const { text, fileName, fileType } = await req.json();
     if (!text || typeof text !== "string") {
       return new Response(JSON.stringify({ error: "Missing 'text'" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    if (!hasMeaningfulText(text)) {
+      return new Response(JSON.stringify({ error: "Texto insuficiente para extração confiável" }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -187,13 +259,21 @@ Deno.serve(async (req) => {
     }
 
     const data = await res.json();
+    const finishReason = data.choices?.[0]?.finish_reason;
+    if (finishReason === "length" || finishReason === "max_tokens") {
+      return new Response(JSON.stringify({ error: "Resposta da IA foi truncada; tente reprocessar com análise profunda" }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
     if (!toolCall) {
       return new Response(JSON.stringify({ error: "IA não retornou dados estruturados", raw: data }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const extracted = JSON.parse(toolCall.function.arguments);
-    return new Response(JSON.stringify({ extracted }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const validation = validateExtraction(extracted, content);
+    if (!validation.valid) {
+      return new Response(JSON.stringify({ error: validation.reason }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    return new Response(JSON.stringify({ extracted: validation.extracted }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error("extract-document error", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });

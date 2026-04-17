@@ -142,7 +142,7 @@ function DocsList() {
                         variant="ghost"
                         size="sm"
                         className="h-7"
-                        disabled={isReprocessing || d.status !== "extracted"}
+                        disabled={isReprocessing || !["extracted", "failed"].includes(d.status)}
                         onClick={() => reprocess(d.id, d.file_name)}
                       >
                         <RefreshCcw className={`size-3.5 mr-1.5 ${isReprocessing ? "animate-spin" : ""}`} />

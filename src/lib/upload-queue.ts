@@ -25,6 +25,12 @@ export type QueueItem = {
 
 type Listener = (items: QueueItem[]) => void;
 
+const MIN_TEXT_LENGTH = 120;
+
+function hasMeaningfulText(value?: string | null) {
+  return !!value && value.replace(/\s+/g, " ").trim().length >= MIN_TEXT_LENGTH;
+}
+
 class UploadQueue {
   private items: QueueItem[] = [];
   private listeners = new Set<Listener>();
@@ -114,7 +120,7 @@ class UploadQueue {
       .maybeSingle();
     if (docErr || !doc) throw new Error("Documento não encontrado");
 
-    if (!doc.raw_text || doc.raw_text.trim().length < 50) {
+    if (!hasMeaningfulText(doc.raw_text)) {
       this.update(it.id, { status: "parsing", message: "Re-extraindo texto do arquivo…" });
       const { data: blob, error: dlErr } = await supabase.storage
         .from("documents")
@@ -122,7 +128,7 @@ class UploadQueue {
       if (dlErr || !blob) throw new Error("Falha ao baixar arquivo do storage");
       const file = new File([blob], doc.file_name, { type: blob.type });
       const parsed = await parseDocument(file);
-      if (!parsed.text || parsed.text.trim().length < 50) {
+      if (!hasMeaningfulText(parsed.text)) {
         throw new Error("Não foi possível extrair texto (PDF escaneado/sem OCR?)");
       }
       await supabase
@@ -219,7 +225,9 @@ class UploadQueue {
       // 3) Parse text
       this.update(it.id, { status: "parsing" });
       const parsed = await parseDocument(file);
-      if (!parsed.text) throw new Error("Não foi possível extrair texto do documento");
+      if (!hasMeaningfulText(parsed.text)) {
+        throw new Error("Texto insuficiente para análise confiável; tente reprocessar para OCR/análise profunda");
+      }
 
       await supabase
         .from("documents")
@@ -235,6 +243,24 @@ class UploadQueue {
       if (ai?.error) throw new Error(ai.error);
 
       const ex = ai.extracted;
+      const hasClientData = !!(ex.cliente_nome || ex.cliente_razao_social || ex.cliente_cidade || ex.segmento);
+      const hasCommercialData = ex.valor_total != null || !!ex.condicao_pagamento || !!ex.numero;
+      const hasTechnicalData = !!(
+        ex.dados_tecnicos?.tipo_camara ||
+        ex.dados_tecnicos?.aplicacao ||
+        ex.dados_tecnicos?.produto_armazenado ||
+        ex.dados_tecnicos?.dimensoes ||
+        ex.dados_tecnicos?.isolamento ||
+        ex.dados_tecnicos?.temperatura_alvo_c != null ||
+        ex.dados_tecnicos?.carga_termica_kcal != null ||
+        (Array.isArray(ex.equipamentos) && ex.equipamentos.length > 0)
+      );
+      const evidenceCount = Array.isArray(ex.evidencias) ? ex.evidencias.length : 0;
+      const confidence = typeof ex.score_confianca === "number" ? ex.score_confianca : 0;
+
+      if ((!hasClientData && !hasCommercialData && !hasTechnicalData) || (confidence < 0.2 && evidenceCount < 2)) {
+        throw new Error("Extração fraca demais para salvar como proposta válida; use reprocessar para análise profunda");
+      }
 
       // 5) Resolve client
       this.update(it.id, { status: "saving" });
@@ -361,6 +387,11 @@ class UploadQueue {
       // 9) Forensic in background (fire-and-forget)
       supabase.functions
         .invoke("forensic-analyze", { body: { documentId: doc.id } })
+        .then(({ data, error }) => {
+          if (error || data?.error) {
+            console.warn("forensic-analyze falhou:", error?.message || data?.error);
+          }
+        })
         .catch((err) => console.warn("forensic-analyze falhou:", err));
 
       this.update(it.id, { status: "done" });
