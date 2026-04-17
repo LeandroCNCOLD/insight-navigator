@@ -203,7 +203,7 @@ class UploadQueue {
       // 4) AI extraction
       this.update(it.id, { status: "extracting" });
       const { data: ai, error: aiErr } = await supabase.functions.invoke("extract-document", {
-        body: { text: parsed.text, fileName: it.file.name, fileType: ext },
+        body: { text: parsed.text, fileName: file.name, fileType: ext },
       });
       if (aiErr) throw new Error(aiErr.message);
       if (ai?.error) throw new Error(ai.error);
