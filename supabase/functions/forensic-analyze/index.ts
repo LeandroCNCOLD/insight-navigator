@@ -199,7 +199,7 @@ Deno.serve(async (req) => {
     const MAX = 80000;
     const content = doc.raw_text.length > MAX ? doc.raw_text.slice(0, MAX) + "\n\n[...truncado...]" : doc.raw_text;
 
-    const model = "google/gemini-2.5-pro";
+    const model = "google/gemini-3.1-pro-preview";
     const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },

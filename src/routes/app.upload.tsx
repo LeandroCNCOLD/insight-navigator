@@ -169,6 +169,11 @@ function UploadPage() {
         tipo_documental: ex.tipo_documental,
         resumo_executivo: ex.resumo_executivo,
       }).eq("id", doc.id);
+
+      // 9) Dispara análise forense em background (não bloqueia UI)
+      supabase.functions.invoke("forensic-analyze", { body: { documentId: doc.id } })
+        .catch((err) => console.warn("forensic-analyze falhou:", err));
+
       update(it.id, { status: "done" });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Erro desconhecido";
