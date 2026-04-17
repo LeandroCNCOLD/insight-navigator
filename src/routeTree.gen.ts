@@ -9,38 +9,321 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppIndexRouteImport } from './routes/app.index'
+import { Route as AppUploadRouteImport } from './routes/app.upload'
+import { Route as AppSettingsRouteImport } from './routes/app.settings'
+import { Route as AppReviewRouteImport } from './routes/app.review'
+import { Route as AppQueueRouteImport } from './routes/app.queue'
+import { Route as AppProposalsRouteImport } from './routes/app.proposals'
+import { Route as AppEquipmentsRouteImport } from './routes/app.equipments'
+import { Route as AppDictionariesRouteImport } from './routes/app.dictionaries'
+import { Route as AppCompetitorsRouteImport } from './routes/app.competitors'
+import { Route as AppCompareRouteImport } from './routes/app.compare'
+import { Route as AppClientsRouteImport } from './routes/app.clients'
+import { Route as AppChatRouteImport } from './routes/app.chat'
+import { Route as AppAuditRouteImport } from './routes/app.audit'
+import { Route as AppDocumentsIndexRouteImport } from './routes/app.documents.index'
+import { Route as AppDocumentsIdRouteImport } from './routes/app.documents.$id'
+import { Route as AppDashboardsTechnicalRouteImport } from './routes/app.dashboards.technical'
+import { Route as AppDashboardsStrategicRouteImport } from './routes/app.dashboards.strategic'
+import { Route as AppDashboardsGeographicRouteImport } from './routes/app.dashboards.geographic'
+import { Route as AppDashboardsContractualRouteImport } from './routes/app.dashboards.contractual'
+import { Route as AppDashboardsCommercialRouteImport } from './routes/app.dashboards.commercial'
 
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppRoute = AppRouteImport.update({
+  id: '/app',
+  path: '/app',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppIndexRoute = AppIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppUploadRoute = AppUploadRouteImport.update({
+  id: '/upload',
+  path: '/upload',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSettingsRoute = AppSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppReviewRoute = AppReviewRouteImport.update({
+  id: '/review',
+  path: '/review',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppQueueRoute = AppQueueRouteImport.update({
+  id: '/queue',
+  path: '/queue',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppProposalsRoute = AppProposalsRouteImport.update({
+  id: '/proposals',
+  path: '/proposals',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppEquipmentsRoute = AppEquipmentsRouteImport.update({
+  id: '/equipments',
+  path: '/equipments',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDictionariesRoute = AppDictionariesRouteImport.update({
+  id: '/dictionaries',
+  path: '/dictionaries',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppCompetitorsRoute = AppCompetitorsRouteImport.update({
+  id: '/competitors',
+  path: '/competitors',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppCompareRoute = AppCompareRouteImport.update({
+  id: '/compare',
+  path: '/compare',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppClientsRoute = AppClientsRouteImport.update({
+  id: '/clients',
+  path: '/clients',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppChatRoute = AppChatRouteImport.update({
+  id: '/chat',
+  path: '/chat',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAuditRoute = AppAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDocumentsIndexRoute = AppDocumentsIndexRouteImport.update({
+  id: '/documents/',
+  path: '/documents/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDocumentsIdRoute = AppDocumentsIdRouteImport.update({
+  id: '/documents/$id',
+  path: '/documents/$id',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDashboardsTechnicalRoute = AppDashboardsTechnicalRouteImport.update({
+  id: '/dashboards/technical',
+  path: '/dashboards/technical',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDashboardsStrategicRoute = AppDashboardsStrategicRouteImport.update({
+  id: '/dashboards/strategic',
+  path: '/dashboards/strategic',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDashboardsGeographicRoute = AppDashboardsGeographicRouteImport.update({
+  id: '/dashboards/geographic',
+  path: '/dashboards/geographic',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDashboardsContractualRoute =
+  AppDashboardsContractualRouteImport.update({
+    id: '/dashboards/contractual',
+    path: '/dashboards/contractual',
+    getParentRoute: () => AppRoute,
+  } as any)
+const AppDashboardsCommercialRoute = AppDashboardsCommercialRouteImport.update({
+  id: '/dashboards/commercial',
+  path: '/dashboards/commercial',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/app': typeof AppRouteWithChildren
+  '/auth': typeof AuthRoute
+  '/app/audit': typeof AppAuditRoute
+  '/app/chat': typeof AppChatRoute
+  '/app/clients': typeof AppClientsRoute
+  '/app/compare': typeof AppCompareRoute
+  '/app/competitors': typeof AppCompetitorsRoute
+  '/app/dictionaries': typeof AppDictionariesRoute
+  '/app/equipments': typeof AppEquipmentsRoute
+  '/app/proposals': typeof AppProposalsRoute
+  '/app/queue': typeof AppQueueRoute
+  '/app/review': typeof AppReviewRoute
+  '/app/settings': typeof AppSettingsRoute
+  '/app/upload': typeof AppUploadRoute
+  '/app/': typeof AppIndexRoute
+  '/app/dashboards/commercial': typeof AppDashboardsCommercialRoute
+  '/app/dashboards/contractual': typeof AppDashboardsContractualRoute
+  '/app/dashboards/geographic': typeof AppDashboardsGeographicRoute
+  '/app/dashboards/strategic': typeof AppDashboardsStrategicRoute
+  '/app/dashboards/technical': typeof AppDashboardsTechnicalRoute
+  '/app/documents/$id': typeof AppDocumentsIdRoute
+  '/app/documents/': typeof AppDocumentsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/app/audit': typeof AppAuditRoute
+  '/app/chat': typeof AppChatRoute
+  '/app/clients': typeof AppClientsRoute
+  '/app/compare': typeof AppCompareRoute
+  '/app/competitors': typeof AppCompetitorsRoute
+  '/app/dictionaries': typeof AppDictionariesRoute
+  '/app/equipments': typeof AppEquipmentsRoute
+  '/app/proposals': typeof AppProposalsRoute
+  '/app/queue': typeof AppQueueRoute
+  '/app/review': typeof AppReviewRoute
+  '/app/settings': typeof AppSettingsRoute
+  '/app/upload': typeof AppUploadRoute
+  '/app': typeof AppIndexRoute
+  '/app/dashboards/commercial': typeof AppDashboardsCommercialRoute
+  '/app/dashboards/contractual': typeof AppDashboardsContractualRoute
+  '/app/dashboards/geographic': typeof AppDashboardsGeographicRoute
+  '/app/dashboards/strategic': typeof AppDashboardsStrategicRoute
+  '/app/dashboards/technical': typeof AppDashboardsTechnicalRoute
+  '/app/documents/$id': typeof AppDocumentsIdRoute
+  '/app/documents': typeof AppDocumentsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/app': typeof AppRouteWithChildren
+  '/auth': typeof AuthRoute
+  '/app/audit': typeof AppAuditRoute
+  '/app/chat': typeof AppChatRoute
+  '/app/clients': typeof AppClientsRoute
+  '/app/compare': typeof AppCompareRoute
+  '/app/competitors': typeof AppCompetitorsRoute
+  '/app/dictionaries': typeof AppDictionariesRoute
+  '/app/equipments': typeof AppEquipmentsRoute
+  '/app/proposals': typeof AppProposalsRoute
+  '/app/queue': typeof AppQueueRoute
+  '/app/review': typeof AppReviewRoute
+  '/app/settings': typeof AppSettingsRoute
+  '/app/upload': typeof AppUploadRoute
+  '/app/': typeof AppIndexRoute
+  '/app/dashboards/commercial': typeof AppDashboardsCommercialRoute
+  '/app/dashboards/contractual': typeof AppDashboardsContractualRoute
+  '/app/dashboards/geographic': typeof AppDashboardsGeographicRoute
+  '/app/dashboards/strategic': typeof AppDashboardsStrategicRoute
+  '/app/dashboards/technical': typeof AppDashboardsTechnicalRoute
+  '/app/documents/$id': typeof AppDocumentsIdRoute
+  '/app/documents/': typeof AppDocumentsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/app'
+    | '/auth'
+    | '/app/audit'
+    | '/app/chat'
+    | '/app/clients'
+    | '/app/compare'
+    | '/app/competitors'
+    | '/app/dictionaries'
+    | '/app/equipments'
+    | '/app/proposals'
+    | '/app/queue'
+    | '/app/review'
+    | '/app/settings'
+    | '/app/upload'
+    | '/app/'
+    | '/app/dashboards/commercial'
+    | '/app/dashboards/contractual'
+    | '/app/dashboards/geographic'
+    | '/app/dashboards/strategic'
+    | '/app/dashboards/technical'
+    | '/app/documents/$id'
+    | '/app/documents/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/auth'
+    | '/app/audit'
+    | '/app/chat'
+    | '/app/clients'
+    | '/app/compare'
+    | '/app/competitors'
+    | '/app/dictionaries'
+    | '/app/equipments'
+    | '/app/proposals'
+    | '/app/queue'
+    | '/app/review'
+    | '/app/settings'
+    | '/app/upload'
+    | '/app'
+    | '/app/dashboards/commercial'
+    | '/app/dashboards/contractual'
+    | '/app/dashboards/geographic'
+    | '/app/dashboards/strategic'
+    | '/app/dashboards/technical'
+    | '/app/documents/$id'
+    | '/app/documents'
+  id:
+    | '__root__'
+    | '/'
+    | '/app'
+    | '/auth'
+    | '/app/audit'
+    | '/app/chat'
+    | '/app/clients'
+    | '/app/compare'
+    | '/app/competitors'
+    | '/app/dictionaries'
+    | '/app/equipments'
+    | '/app/proposals'
+    | '/app/queue'
+    | '/app/review'
+    | '/app/settings'
+    | '/app/upload'
+    | '/app/'
+    | '/app/dashboards/commercial'
+    | '/app/dashboards/contractual'
+    | '/app/dashboards/geographic'
+    | '/app/dashboards/strategic'
+    | '/app/dashboards/technical'
+    | '/app/documents/$id'
+    | '/app/documents/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AppRoute: typeof AppRouteWithChildren
+  AuthRoute: typeof AuthRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/app': {
+      id: '/app'
+      path: '/app'
+      fullPath: '/app'
+      preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,21 +331,202 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/app/': {
+      id: '/app/'
+      path: '/'
+      fullPath: '/app/'
+      preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/upload': {
+      id: '/app/upload'
+      path: '/upload'
+      fullPath: '/app/upload'
+      preLoaderRoute: typeof AppUploadRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/settings': {
+      id: '/app/settings'
+      path: '/settings'
+      fullPath: '/app/settings'
+      preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/review': {
+      id: '/app/review'
+      path: '/review'
+      fullPath: '/app/review'
+      preLoaderRoute: typeof AppReviewRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/queue': {
+      id: '/app/queue'
+      path: '/queue'
+      fullPath: '/app/queue'
+      preLoaderRoute: typeof AppQueueRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/proposals': {
+      id: '/app/proposals'
+      path: '/proposals'
+      fullPath: '/app/proposals'
+      preLoaderRoute: typeof AppProposalsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/equipments': {
+      id: '/app/equipments'
+      path: '/equipments'
+      fullPath: '/app/equipments'
+      preLoaderRoute: typeof AppEquipmentsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/dictionaries': {
+      id: '/app/dictionaries'
+      path: '/dictionaries'
+      fullPath: '/app/dictionaries'
+      preLoaderRoute: typeof AppDictionariesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/competitors': {
+      id: '/app/competitors'
+      path: '/competitors'
+      fullPath: '/app/competitors'
+      preLoaderRoute: typeof AppCompetitorsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/compare': {
+      id: '/app/compare'
+      path: '/compare'
+      fullPath: '/app/compare'
+      preLoaderRoute: typeof AppCompareRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/clients': {
+      id: '/app/clients'
+      path: '/clients'
+      fullPath: '/app/clients'
+      preLoaderRoute: typeof AppClientsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/chat': {
+      id: '/app/chat'
+      path: '/chat'
+      fullPath: '/app/chat'
+      preLoaderRoute: typeof AppChatRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/audit': {
+      id: '/app/audit'
+      path: '/audit'
+      fullPath: '/app/audit'
+      preLoaderRoute: typeof AppAuditRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/documents/': {
+      id: '/app/documents/'
+      path: '/documents'
+      fullPath: '/app/documents/'
+      preLoaderRoute: typeof AppDocumentsIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/documents/$id': {
+      id: '/app/documents/$id'
+      path: '/documents/$id'
+      fullPath: '/app/documents/$id'
+      preLoaderRoute: typeof AppDocumentsIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/dashboards/technical': {
+      id: '/app/dashboards/technical'
+      path: '/dashboards/technical'
+      fullPath: '/app/dashboards/technical'
+      preLoaderRoute: typeof AppDashboardsTechnicalRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/dashboards/strategic': {
+      id: '/app/dashboards/strategic'
+      path: '/dashboards/strategic'
+      fullPath: '/app/dashboards/strategic'
+      preLoaderRoute: typeof AppDashboardsStrategicRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/dashboards/geographic': {
+      id: '/app/dashboards/geographic'
+      path: '/dashboards/geographic'
+      fullPath: '/app/dashboards/geographic'
+      preLoaderRoute: typeof AppDashboardsGeographicRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/dashboards/contractual': {
+      id: '/app/dashboards/contractual'
+      path: '/dashboards/contractual'
+      fullPath: '/app/dashboards/contractual'
+      preLoaderRoute: typeof AppDashboardsContractualRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/dashboards/commercial': {
+      id: '/app/dashboards/commercial'
+      path: '/dashboards/commercial'
+      fullPath: '/app/dashboards/commercial'
+      preLoaderRoute: typeof AppDashboardsCommercialRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
+interface AppRouteChildren {
+  AppAuditRoute: typeof AppAuditRoute
+  AppChatRoute: typeof AppChatRoute
+  AppClientsRoute: typeof AppClientsRoute
+  AppCompareRoute: typeof AppCompareRoute
+  AppCompetitorsRoute: typeof AppCompetitorsRoute
+  AppDictionariesRoute: typeof AppDictionariesRoute
+  AppEquipmentsRoute: typeof AppEquipmentsRoute
+  AppProposalsRoute: typeof AppProposalsRoute
+  AppQueueRoute: typeof AppQueueRoute
+  AppReviewRoute: typeof AppReviewRoute
+  AppSettingsRoute: typeof AppSettingsRoute
+  AppUploadRoute: typeof AppUploadRoute
+  AppIndexRoute: typeof AppIndexRoute
+  AppDashboardsCommercialRoute: typeof AppDashboardsCommercialRoute
+  AppDashboardsContractualRoute: typeof AppDashboardsContractualRoute
+  AppDashboardsGeographicRoute: typeof AppDashboardsGeographicRoute
+  AppDashboardsStrategicRoute: typeof AppDashboardsStrategicRoute
+  AppDashboardsTechnicalRoute: typeof AppDashboardsTechnicalRoute
+  AppDocumentsIdRoute: typeof AppDocumentsIdRoute
+  AppDocumentsIndexRoute: typeof AppDocumentsIndexRoute
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppAuditRoute: AppAuditRoute,
+  AppChatRoute: AppChatRoute,
+  AppClientsRoute: AppClientsRoute,
+  AppCompareRoute: AppCompareRoute,
+  AppCompetitorsRoute: AppCompetitorsRoute,
+  AppDictionariesRoute: AppDictionariesRoute,
+  AppEquipmentsRoute: AppEquipmentsRoute,
+  AppProposalsRoute: AppProposalsRoute,
+  AppQueueRoute: AppQueueRoute,
+  AppReviewRoute: AppReviewRoute,
+  AppSettingsRoute: AppSettingsRoute,
+  AppUploadRoute: AppUploadRoute,
+  AppIndexRoute: AppIndexRoute,
+  AppDashboardsCommercialRoute: AppDashboardsCommercialRoute,
+  AppDashboardsContractualRoute: AppDashboardsContractualRoute,
+  AppDashboardsGeographicRoute: AppDashboardsGeographicRoute,
+  AppDashboardsStrategicRoute: AppDashboardsStrategicRoute,
+  AppDashboardsTechnicalRoute: AppDashboardsTechnicalRoute,
+  AppDocumentsIdRoute: AppDocumentsIdRoute,
+  AppDocumentsIndexRoute: AppDocumentsIndexRoute,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AppRoute: AppRouteWithChildren,
+  AuthRoute: AuthRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}
