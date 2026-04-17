@@ -34,6 +34,14 @@ export const Route = createRootRoute({
       { title: "DocIntel — Competitive Intelligence" },
       { name: "description", content: "Plataforma de análise documental e benchmarking competitivo" },
       { name: "author", content: "Lovable" },
+      { property: "og:title", content: "DocIntel — Competitive Intelligence" },
+      { name: "twitter:title", content: "DocIntel — Competitive Intelligence" },
+      { property: "og:description", content: "Plataforma de análise documental e benchmarking competitivo" },
+      { name: "twitter:description", content: "Plataforma de análise documental e benchmarking competitivo" },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/213d5d1f-3269-4d77-b62d-915409b3b68b/id-preview-6554835c--30fd0068-8098-463e-88bb-29586b0b9323.lovable.app-1776456249491.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/213d5d1f-3269-4d77-b62d-915409b3b68b/id-preview-6554835c--30fd0068-8098-463e-88bb-29586b0b9323.lovable.app-1776456249491.png" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { property: "og:type", content: "website" },
     ],
     links: [
       {
