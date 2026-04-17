@@ -102,20 +102,26 @@ function UploadPage() {
         }
       }
 
-      // 6) Insert proposal
+      // 6) Insert proposal (com novos campos analíticos)
       const { data: prop } = await supabase.from("proposals").insert({
         owner_id: u.user.id, document_id: doc.id, client_id: clientId,
         numero: ex.numero, data_proposta: ex.data_proposta, valor_total: ex.valor_total,
         condicao_pagamento: ex.condicao_pagamento, parcelas: ex.parcelas,
         prazo_fabricacao_dias: ex.prazo_fabricacao_dias, prazo_entrega_dias: ex.prazo_entrega_dias,
         prazo_instalacao_dias: ex.prazo_instalacao_dias, garantia_meses: ex.garantia_meses,
-        garantia_limitacoes: ex.garantia_limitacoes, frete_tipo: ex.frete_tipo,
-        frete_incluso: ex.frete_incluso, instalacao_inclusa: ex.instalacao_inclusa,
+        garantia_limitacoes: ex.garantia_limitacoes, exclusoes_garantia: ex.exclusoes_garantia,
+        frete_tipo: ex.frete_tipo, frete_incluso: ex.frete_incluso,
+        instalacao_inclusa: ex.instalacao_inclusa, fornecimento_cliente: ex.fornecimento_cliente,
         vendedor: ex.vendedor, representante_legal: ex.representante_legal,
         tem_assinatura: ex.tem_assinatura, status_proposta: ex.status_proposta,
         observacoes: ex.observacoes, riscos: ex.riscos,
         score_confianca: ex.score_confianca, dados_tecnicos: ex.dados_tecnicos || {},
         clausulas: ex.clausulas || [],
+        resumo_executivo: ex.resumo_executivo, resumo_tecnico: ex.resumo_tecnico,
+        resumo_comercial: ex.resumo_comercial, insights_benchmarking: ex.insights_benchmarking,
+        palavras_chave: Array.isArray(ex.palavras_chave) ? ex.palavras_chave : [],
+        porte_projeto: ex.porte_projeto, indicio_fechamento: ex.indicio_fechamento,
+        segmentacao_cliente: ex.segmentacao_cliente,
       }).select().single();
 
       // 7) Insert equipments
@@ -132,7 +138,28 @@ function UploadPage() {
         );
       }
 
-      await supabase.from("documents").update({ status: "extracted", client_id: clientId }).eq("id", doc.id);
+      // 8) Insert evidences (rastreabilidade por campo)
+      if (prop && Array.isArray(ex.evidencias) && ex.evidencias.length) {
+        await supabase.from("evidences").insert(
+          ex.evidencias
+            .filter((ev: any) => ev?.campo)
+            .map((ev: any) => ({
+              owner_id: u.user.id, document_id: doc.id, proposal_id: prop.id,
+              campo: String(ev.campo).slice(0, 200),
+              valor_extraido: ev.valor_extraido != null ? String(ev.valor_extraido).slice(0, 1000) : null,
+              pagina: typeof ev.pagina === "number" ? ev.pagina : null,
+              trecho: ev.trecho ? String(ev.trecho).slice(0, 500) : null,
+              score_confianca: typeof ev.score_confianca === "number" ? ev.score_confianca : null,
+              status: "pending",
+            }))
+        );
+      }
+
+      await supabase.from("documents").update({
+        status: "extracted", client_id: clientId,
+        tipo_documental: ex.tipo_documental,
+        resumo_executivo: ex.resumo_executivo,
+      }).eq("id", doc.id);
       update(it.id, { status: "done" });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Erro desconhecido";
