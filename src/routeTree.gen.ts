@@ -36,6 +36,7 @@ import { Route as AppDashboardsStrategicRouteImport } from './routes/app.dashboa
 import { Route as AppDashboardsGeographicRouteImport } from './routes/app.dashboards.geographic'
 import { Route as AppDashboardsContractualRouteImport } from './routes/app.dashboards.contractual'
 import { Route as AppDashboardsCommercialRouteImport } from './routes/app.dashboards.commercial'
+import { Route as AppCompetitorsNomeRouteImport } from './routes/app.competitors.$nome'
 import { Route as AppDocumentsIdForensicRouteImport } from './routes/app.documents.$id.forensic'
 
 const AuthRoute = AuthRouteImport.update({
@@ -174,6 +175,11 @@ const AppDashboardsCommercialRoute = AppDashboardsCommercialRouteImport.update({
   path: '/dashboards/commercial',
   getParentRoute: () => AppRoute,
 } as any)
+const AppCompetitorsNomeRoute = AppCompetitorsNomeRouteImport.update({
+  id: '/$nome',
+  path: '/$nome',
+  getParentRoute: () => AppCompetitorsRoute,
+} as any)
 const AppDocumentsIdForensicRoute = AppDocumentsIdForensicRouteImport.update({
   id: '/forensic',
   path: '/forensic',
@@ -188,7 +194,7 @@ export interface FileRoutesByFullPath {
   '/app/chat': typeof AppChatRoute
   '/app/clients': typeof AppClientsRoute
   '/app/compare': typeof AppCompareRoute
-  '/app/competitors': typeof AppCompetitorsRoute
+  '/app/competitors': typeof AppCompetitorsRouteWithChildren
   '/app/dictionaries': typeof AppDictionariesRoute
   '/app/equipments': typeof AppEquipmentsRoute
   '/app/insights': typeof AppInsightsRoute
@@ -201,6 +207,7 @@ export interface FileRoutesByFullPath {
   '/app/settings': typeof AppSettingsRoute
   '/app/upload': typeof AppUploadRoute
   '/app/': typeof AppIndexRoute
+  '/app/competitors/$nome': typeof AppCompetitorsNomeRoute
   '/app/dashboards/commercial': typeof AppDashboardsCommercialRoute
   '/app/dashboards/contractual': typeof AppDashboardsContractualRoute
   '/app/dashboards/geographic': typeof AppDashboardsGeographicRoute
@@ -217,7 +224,7 @@ export interface FileRoutesByTo {
   '/app/chat': typeof AppChatRoute
   '/app/clients': typeof AppClientsRoute
   '/app/compare': typeof AppCompareRoute
-  '/app/competitors': typeof AppCompetitorsRoute
+  '/app/competitors': typeof AppCompetitorsRouteWithChildren
   '/app/dictionaries': typeof AppDictionariesRoute
   '/app/equipments': typeof AppEquipmentsRoute
   '/app/insights': typeof AppInsightsRoute
@@ -230,6 +237,7 @@ export interface FileRoutesByTo {
   '/app/settings': typeof AppSettingsRoute
   '/app/upload': typeof AppUploadRoute
   '/app': typeof AppIndexRoute
+  '/app/competitors/$nome': typeof AppCompetitorsNomeRoute
   '/app/dashboards/commercial': typeof AppDashboardsCommercialRoute
   '/app/dashboards/contractual': typeof AppDashboardsContractualRoute
   '/app/dashboards/geographic': typeof AppDashboardsGeographicRoute
@@ -248,7 +256,7 @@ export interface FileRoutesById {
   '/app/chat': typeof AppChatRoute
   '/app/clients': typeof AppClientsRoute
   '/app/compare': typeof AppCompareRoute
-  '/app/competitors': typeof AppCompetitorsRoute
+  '/app/competitors': typeof AppCompetitorsRouteWithChildren
   '/app/dictionaries': typeof AppDictionariesRoute
   '/app/equipments': typeof AppEquipmentsRoute
   '/app/insights': typeof AppInsightsRoute
@@ -261,6 +269,7 @@ export interface FileRoutesById {
   '/app/settings': typeof AppSettingsRoute
   '/app/upload': typeof AppUploadRoute
   '/app/': typeof AppIndexRoute
+  '/app/competitors/$nome': typeof AppCompetitorsNomeRoute
   '/app/dashboards/commercial': typeof AppDashboardsCommercialRoute
   '/app/dashboards/contractual': typeof AppDashboardsContractualRoute
   '/app/dashboards/geographic': typeof AppDashboardsGeographicRoute
@@ -293,6 +302,7 @@ export interface FileRouteTypes {
     | '/app/settings'
     | '/app/upload'
     | '/app/'
+    | '/app/competitors/$nome'
     | '/app/dashboards/commercial'
     | '/app/dashboards/contractual'
     | '/app/dashboards/geographic'
@@ -322,6 +332,7 @@ export interface FileRouteTypes {
     | '/app/settings'
     | '/app/upload'
     | '/app'
+    | '/app/competitors/$nome'
     | '/app/dashboards/commercial'
     | '/app/dashboards/contractual'
     | '/app/dashboards/geographic'
@@ -352,6 +363,7 @@ export interface FileRouteTypes {
     | '/app/settings'
     | '/app/upload'
     | '/app/'
+    | '/app/competitors/$nome'
     | '/app/dashboards/commercial'
     | '/app/dashboards/contractual'
     | '/app/dashboards/geographic'
@@ -559,6 +571,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppDashboardsCommercialRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/competitors/$nome': {
+      id: '/app/competitors/$nome'
+      path: '/$nome'
+      fullPath: '/app/competitors/$nome'
+      preLoaderRoute: typeof AppCompetitorsNomeRouteImport
+      parentRoute: typeof AppCompetitorsRoute
+    }
     '/app/documents/$id/forensic': {
       id: '/app/documents/$id/forensic'
       path: '/forensic'
@@ -568,6 +587,18 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface AppCompetitorsRouteChildren {
+  AppCompetitorsNomeRoute: typeof AppCompetitorsNomeRoute
+}
+
+const AppCompetitorsRouteChildren: AppCompetitorsRouteChildren = {
+  AppCompetitorsNomeRoute: AppCompetitorsNomeRoute,
+}
+
+const AppCompetitorsRouteWithChildren = AppCompetitorsRoute._addFileChildren(
+  AppCompetitorsRouteChildren,
+)
 
 interface AppDocumentsIdRouteChildren {
   AppDocumentsIdForensicRoute: typeof AppDocumentsIdForensicRoute
@@ -586,7 +617,7 @@ interface AppRouteChildren {
   AppChatRoute: typeof AppChatRoute
   AppClientsRoute: typeof AppClientsRoute
   AppCompareRoute: typeof AppCompareRoute
-  AppCompetitorsRoute: typeof AppCompetitorsRoute
+  AppCompetitorsRoute: typeof AppCompetitorsRouteWithChildren
   AppDictionariesRoute: typeof AppDictionariesRoute
   AppEquipmentsRoute: typeof AppEquipmentsRoute
   AppInsightsRoute: typeof AppInsightsRoute
@@ -613,7 +644,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppChatRoute: AppChatRoute,
   AppClientsRoute: AppClientsRoute,
   AppCompareRoute: AppCompareRoute,
-  AppCompetitorsRoute: AppCompetitorsRoute,
+  AppCompetitorsRoute: AppCompetitorsRouteWithChildren,
   AppDictionariesRoute: AppDictionariesRoute,
   AppEquipmentsRoute: AppEquipmentsRoute,
   AppInsightsRoute: AppInsightsRoute,
