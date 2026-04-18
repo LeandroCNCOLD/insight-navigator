@@ -18,6 +18,8 @@ import { Route as AppSettingsRouteImport } from './routes/app.settings'
 import { Route as AppReviewRouteImport } from './routes/app.review'
 import { Route as AppQueueRouteImport } from './routes/app.queue'
 import { Route as AppProposalsRouteImport } from './routes/app.proposals'
+import { Route as AppIntelligenceRouteImport } from './routes/app.intelligence'
+import { Route as AppInsightsRouteImport } from './routes/app.insights'
 import { Route as AppEquipmentsRouteImport } from './routes/app.equipments'
 import { Route as AppDictionariesRouteImport } from './routes/app.dictionaries'
 import { Route as AppCompetitorsRouteImport } from './routes/app.competitors'
@@ -77,6 +79,16 @@ const AppQueueRoute = AppQueueRouteImport.update({
 const AppProposalsRoute = AppProposalsRouteImport.update({
   id: '/proposals',
   path: '/proposals',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppIntelligenceRoute = AppIntelligenceRouteImport.update({
+  id: '/intelligence',
+  path: '/intelligence',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppInsightsRoute = AppInsightsRouteImport.update({
+  id: '/insights',
+  path: '/insights',
   getParentRoute: () => AppRoute,
 } as any)
 const AppEquipmentsRoute = AppEquipmentsRouteImport.update({
@@ -167,6 +179,8 @@ export interface FileRoutesByFullPath {
   '/app/competitors': typeof AppCompetitorsRoute
   '/app/dictionaries': typeof AppDictionariesRoute
   '/app/equipments': typeof AppEquipmentsRoute
+  '/app/insights': typeof AppInsightsRoute
+  '/app/intelligence': typeof AppIntelligenceRoute
   '/app/proposals': typeof AppProposalsRoute
   '/app/queue': typeof AppQueueRoute
   '/app/review': typeof AppReviewRoute
@@ -192,6 +206,8 @@ export interface FileRoutesByTo {
   '/app/competitors': typeof AppCompetitorsRoute
   '/app/dictionaries': typeof AppDictionariesRoute
   '/app/equipments': typeof AppEquipmentsRoute
+  '/app/insights': typeof AppInsightsRoute
+  '/app/intelligence': typeof AppIntelligenceRoute
   '/app/proposals': typeof AppProposalsRoute
   '/app/queue': typeof AppQueueRoute
   '/app/review': typeof AppReviewRoute
@@ -219,6 +235,8 @@ export interface FileRoutesById {
   '/app/competitors': typeof AppCompetitorsRoute
   '/app/dictionaries': typeof AppDictionariesRoute
   '/app/equipments': typeof AppEquipmentsRoute
+  '/app/insights': typeof AppInsightsRoute
+  '/app/intelligence': typeof AppIntelligenceRoute
   '/app/proposals': typeof AppProposalsRoute
   '/app/queue': typeof AppQueueRoute
   '/app/review': typeof AppReviewRoute
@@ -247,6 +265,8 @@ export interface FileRouteTypes {
     | '/app/competitors'
     | '/app/dictionaries'
     | '/app/equipments'
+    | '/app/insights'
+    | '/app/intelligence'
     | '/app/proposals'
     | '/app/queue'
     | '/app/review'
@@ -272,6 +292,8 @@ export interface FileRouteTypes {
     | '/app/competitors'
     | '/app/dictionaries'
     | '/app/equipments'
+    | '/app/insights'
+    | '/app/intelligence'
     | '/app/proposals'
     | '/app/queue'
     | '/app/review'
@@ -298,6 +320,8 @@ export interface FileRouteTypes {
     | '/app/competitors'
     | '/app/dictionaries'
     | '/app/equipments'
+    | '/app/insights'
+    | '/app/intelligence'
     | '/app/proposals'
     | '/app/queue'
     | '/app/review'
@@ -383,6 +407,20 @@ declare module '@tanstack/react-router' {
       path: '/proposals'
       fullPath: '/app/proposals'
       preLoaderRoute: typeof AppProposalsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/intelligence': {
+      id: '/app/intelligence'
+      path: '/intelligence'
+      fullPath: '/app/intelligence'
+      preLoaderRoute: typeof AppIntelligenceRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/insights': {
+      id: '/app/insights'
+      path: '/insights'
+      fullPath: '/app/insights'
+      preLoaderRoute: typeof AppInsightsRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/equipments': {
@@ -513,6 +551,8 @@ interface AppRouteChildren {
   AppCompetitorsRoute: typeof AppCompetitorsRoute
   AppDictionariesRoute: typeof AppDictionariesRoute
   AppEquipmentsRoute: typeof AppEquipmentsRoute
+  AppInsightsRoute: typeof AppInsightsRoute
+  AppIntelligenceRoute: typeof AppIntelligenceRoute
   AppProposalsRoute: typeof AppProposalsRoute
   AppQueueRoute: typeof AppQueueRoute
   AppReviewRoute: typeof AppReviewRoute
@@ -536,6 +576,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppCompetitorsRoute: AppCompetitorsRoute,
   AppDictionariesRoute: AppDictionariesRoute,
   AppEquipmentsRoute: AppEquipmentsRoute,
+  AppInsightsRoute: AppInsightsRoute,
+  AppIntelligenceRoute: AppIntelligenceRoute,
   AppProposalsRoute: AppProposalsRoute,
   AppQueueRoute: AppQueueRoute,
   AppReviewRoute: AppReviewRoute,

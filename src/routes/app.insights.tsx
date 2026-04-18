@@ -49,12 +49,12 @@ function InsightRadarPage() {
       <div className="p-6">
         <PageHeader
           title="Insight Radar"
-          subtitle="Padrões, alertas e achados automáticos da base"
+          description="Padrões, alertas e achados automáticos da base"
         />
         <EmptyState
           icon={Lightbulb}
           title="Sem base suficiente para gerar insights"
-          subtitle="Envie documentos e consolide propostas para ativar o radar."
+          description="Envie documentos e consolide propostas para ativar o radar."
           action={
             <Link to="/app/upload">
               <Button>Ir para upload</Button>
@@ -69,8 +69,8 @@ function InsightRadarPage() {
     <div className="p-6 space-y-6">
       <PageHeader
         title="Insight Radar"
-        subtitle="Leitura automática da base com padrões, alertas e anomalias"
-        actions={
+        description="Leitura automática da base com padrões, alertas e anomalias"
+        action={
           <div className="flex gap-2">
             <Link to="/app/chat">
               <Button variant="outline">
