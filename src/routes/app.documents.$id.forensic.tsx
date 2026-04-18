@@ -1,340 +1,542 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  ClipboardList,
+  FileSearch,
+  FileSignature,
+  Loader2,
+  RefreshCw,
+  ScanText,
+  Sparkles,
+  Stamp,
+  Table2,
+} from "lucide-react";
+import { toast } from "sonner";
+
 import { supabase } from "@/integrations/supabase/client";
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/dashboard-bits";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { ArrowLeft, AlertTriangle, FileSignature, Stamp, ClipboardList, Sparkles, Loader2, RefreshCw } from "lucide-react";
-import { toast } from "sonner";
-import { useState } from "react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+import {
+  fetchForensicNavigatorData,
+  forensicStatusTone,
+  percent,
+  splitRawText,
+  type ForensicAnalysis,
+} from "@/lib/document-forensic";
+import { formatBRL, formatDate, statusLabel } from "@/lib/format";
 
 export const Route = createFileRoute("/app/documents/$id/forensic")({
-  component: ForensicPage,
-  head: () => ({ meta: [{ title: "Análise Forense — DocIntel" }] }),
+  component: ForensicNavigatorPage,
+  head: () => ({
+    meta: [{ title: "Navegador Forense — DocIntel" }],
+  }),
 });
 
-function ForensicPage() {
+function ForensicNavigatorPage() {
   const { id } = Route.useParams();
   const qc = useQueryClient();
-  const [running, setRunning] = useState(false);
+  const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["forensic", id],
-    queryFn: async () => {
-      const { data: doc } = await supabase.from("documents").select("file_name").eq("id", id).maybeSingle();
-      const { data: analyses } = await supabase
-        .from("forensic_analyses")
-        .select("*")
-        .eq("document_id", id)
-        .order("versao", { ascending: false });
-      return { doc, analyses: analyses || [] };
-    },
+    queryKey: ["forensic-navigator", id],
+    queryFn: () => fetchForensicNavigatorData(id),
   });
 
   const runAnalysis = useMutation({
     mutationFn: async () => {
-      setRunning(true);
-      const { data, error } = await supabase.functions.invoke("forensic-analyze", { body: { documentId: id } });
+      const { data, error } = await supabase.functions.invoke("forensic-analyze", {
+        body: { documentId: id },
+      });
       if (error) throw new Error(error.message);
       if (data?.error) throw new Error(data.error);
       return data;
     },
     onSuccess: () => {
       toast.success("Análise forense concluída");
-      qc.invalidateQueries({ queryKey: ["forensic", id] });
-      setRunning(false);
+      qc.invalidateQueries({ queryKey: ["forensic-navigator", id] });
     },
     onError: (e: any) => {
-      toast.error(e.message || "Falha na análise");
-      setRunning(false);
+      toast.error(e.message || "Falha ao executar análise forense");
     },
   });
 
-  if (isLoading) return <div className="p-6">Carregando...</div>;
-  const a: any = data?.analyses?.[0];
+  const analysis = useMemo(() => {
+    const analyses = data?.analyses || [];
+    if (!analyses.length) return null;
+    if (selectedVersion == null) return analyses[0];
+    return analyses.find((item) => item.versao === selectedVersion) || analyses[0];
+  }, [data?.analyses, selectedVersion]);
+
+  const chunks = useMemo(() => splitRawText(data?.document?.raw_text), [data?.document?.raw_text]);
+
+  if (isLoading) {
+    return <div className="p-6 text-sm text-muted-foreground">Carregando análise forense...</div>;
+  }
+
+  if (!data?.document) {
+    return <div className="p-6 text-sm text-muted-foreground">Documento não encontrado.</div>;
+  }
+
+  const d = data.document;
+  const p = data.proposal;
 
   return (
-    <div className="p-6 space-y-5">
-      <Link to="/app/documents/$id" params={{ id }} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="size-3.5" />Voltar para o documento
-      </Link>
-
+    <div className="p-6 space-y-6">
       <PageHeader
-        title="Análise Forense"
-        description={data?.doc?.file_name || ""}
-        action={
-          <div className="flex items-center gap-2">
-            {a && <Badge variant="outline" className="gap-1.5"><Sparkles className="size-3" />v{a.versao} · {a.modelo_ia}</Badge>}
-            <Button size="sm" onClick={() => runAnalysis.mutate()} disabled={running}>
-              {running ? <Loader2 className="size-3.5 mr-2 animate-spin" /> : a ? <RefreshCw className="size-3.5 mr-2" /> : <Sparkles className="size-3.5 mr-2" />}
-              {a ? "Reprocessar" : "Executar análise"}
+        title="Navegador Forense"
+        subtitle="Leitura profunda, rastreável e auditável do documento"
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <Link to="/app/documents/$id" params={{ id }}>
+              <Button variant="outline">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Voltar para o documento
+              </Button>
+            </Link>
+            <Button
+              onClick={() => runAnalysis.mutate()}
+              disabled={runAnalysis.isPending}
+            >
+              {runAnalysis.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="mr-2 h-4 w-4" />
+              )}
+              {analysis ? "Reprocessar análise" : "Executar análise"}
             </Button>
           </div>
         }
       />
 
-      {!a && !running && (
-        <Card className="p-10 text-center text-sm text-muted-foreground gradient-surface border-border">
-          <Sparkles className="size-8 mx-auto mb-3 text-primary" />
-          <div className="font-medium text-foreground mb-1">Nenhuma análise forense ainda</div>
-          <div>Clique em <strong>Executar análise</strong> para gerar uma leitura completa em 4 níveis (literal · estrutural · semântica · analítica). Leva ~30-60s e usa modelo Pro.</div>
-        </Card>
-      )}
+      <div className="grid gap-4 lg:grid-cols-4">
+        <TopMetric
+          label="Documento"
+          value={d.file_name || "—"}
+          helper={statusLabel[d.status] || d.status || "—"}
+        />
+        <TopMetric
+          label="Cliente"
+          value={d.client?.nome || p?.cliente_nome || "—"}
+          helper={d.client?.estado || "—"}
+        />
+        <TopMetric
+          label="Valor"
+          value={formatBRL(p?.valor_total)}
+          helper={p?.numero || "Sem número"}
+        />
+        <TopMetric
+          label="Versões forenses"
+          value={String(data.analyses.length)}
+          helper={analysis?.modelo_ia || "—"}
+        />
+      </div>
 
-      {running && !a && (
-        <Card className="p-10 text-center gradient-surface border-border">
-          <Loader2 className="size-8 mx-auto mb-3 animate-spin text-primary" />
-          <div className="font-medium">Analisando documento integralmente...</div>
-          <div className="text-xs text-muted-foreground mt-1">Pode levar até 60 segundos.</div>
-        </Card>
-      )}
-
-      {a && (
-        <>
-          {/* Conflitos no topo */}
-          {Array.isArray(a.conflitos_documentais) && a.conflitos_documentais.length > 0 && (
-            <Card className="p-4 bg-destructive/10 border-destructive/30">
-              <div className="flex items-center gap-2 text-sm font-medium text-destructive mb-2">
-                <AlertTriangle className="size-4" />
-                {a.conflitos_documentais.length} conflito(s) documental(is) detectado(s)
-              </div>
-              <ul className="space-y-2">
-                {a.conflitos_documentais.map((c: any, i: number) => (
-                  <li key={i} className="text-xs">
-                    <strong>{c.campo}:</strong> {c.observacao || "trechos divergentes"}
-                    {Array.isArray(c.trechos) && (
-                      <ul className="list-disc ml-5 mt-1 text-muted-foreground">
-                        {c.trechos.map((t: string, j: number) => <li key={j}>"{t}"</li>)}
-                      </ul>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          )}
-
-          {/* Header score */}
-          <div className="grid md:grid-cols-4 gap-3">
-            <ScoreCard label="Score global" value={`${((a.score_global || 0) * 100).toFixed(0)}%`} />
-            <ScoreCard label="Tipo" value={a.tipo_documento || "—"} />
-            <ScoreCard label="Seções" value={String((a.secoes || []).length)} />
-            <ScoreCard label="Campos rastreados" value={String((a.campos_literais || []).length)} />
+      {!analysis ? (
+        <Card className="p-8 text-center">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full border">
+            <FileSearch className="h-6 w-6" />
           </div>
-
-          {/* Bloco A — Estrutura */}
-          <Accordion type="multiple" defaultValue={["a", "e"]} className="space-y-3">
-            <AccordionItem value="a" className="border-border bg-card rounded-lg overflow-hidden">
-              <AccordionTrigger className="px-5 hover:no-underline">
-                <span className="flex items-center gap-2 text-sm font-medium"><ClipboardList className="size-4 text-primary" /> Bloco A — Estrutura documental</span>
-              </AccordionTrigger>
-              <AccordionContent className="px-5 pb-5 space-y-4">
-                <div className="flex flex-wrap gap-2">
-                  {a.tem_assinatura && <Badge variant="outline" className="gap-1"><FileSignature className="size-3" />Assinatura</Badge>}
-                  {a.tem_docusign && <Badge variant="outline" className="gap-1"><FileSignature className="size-3" />DocuSign</Badge>}
-                  {a.tem_carimbo && <Badge variant="outline" className="gap-1"><Stamp className="size-3" />Carimbo</Badge>}
-                  {a.tem_tabelas && <Badge variant="outline">Tabelas</Badge>}
-                  {a.tem_formulario && <Badge variant="outline">Formulário</Badge>}
+          <div className="text-lg font-semibold">Nenhuma análise forense ainda</div>
+          <div className="mt-2 text-sm text-muted-foreground">
+            Execute a análise para gerar leitura em níveis literal, estrutural, semântico e analítico.
+          </div>
+        </Card>
+      ) : (
+        <>
+          <Card className="p-5 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="text-lg font-semibold">Versão ativa da análise</div>
+                <div className="text-sm text-muted-foreground">
+                  v{analysis.versao} · {analysis.modelo_ia || "modelo não informado"}
                 </div>
-                <div>
-                  <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Seções identificadas</div>
-                  <ol className="border-l-2 border-border ml-2 space-y-2">
-                    {(a.secoes || []).map((s: any, i: number) => (
-                      <li key={i} className="pl-4 relative">
-                        <span className="absolute -left-[5px] top-1.5 size-2 rounded-full bg-primary" />
-                        <div className="text-sm">{s.ordem ? `${s.ordem}. ` : ""}{s.titulo}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {s.tipo && <Badge variant="secondary" className="mr-2 text-[10px]">{s.tipo}</Badge>}
-                          {s.pagina_inicio && `pg ${s.pagina_inicio}${s.pagina_fim && s.pagina_fim !== s.pagina_inicio ? `-${s.pagina_fim}` : ""}`}
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {(data.analyses || []).map((version) => (
+                  <Button
+                    key={version.id}
+                    variant={analysis.versao === version.versao ? "default" : "outline"}
+                    onClick={() => setSelectedVersion(version.versao)}
+                  >
+                    v{version.versao}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-4">
+              <ScoreCard
+                label="Estrutura"
+                value={percent(analysis.score_estrutura)}
+                tone={forensicStatusTone(analysis.score_estrutura)}
+              />
+              <ScoreCard
+                label="Rastreabilidade"
+                value={percent(analysis.score_rastreabilidade)}
+                tone={forensicStatusTone(analysis.score_rastreabilidade)}
+              />
+              <ScoreCard
+                label="Analiticidade"
+                value={percent(analysis.score_analiticidade)}
+                tone={forensicStatusTone(analysis.score_analiticidade)}
+              />
+              <ScoreCard
+                label="Confiança global"
+                value={percent(analysis.score_confianca_global)}
+                tone={forensicStatusTone(analysis.score_confianca_global)}
+              />
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {analysis.tem_assinatura ? (
+                <Badge><FileSignature className="mr-1 h-3 w-3" />Assinatura</Badge>
+              ) : null}
+              {analysis.tem_docusign ? (
+                <Badge><Sparkles className="mr-1 h-3 w-3" />DocuSign</Badge>
+              ) : null}
+              {analysis.tem_carimbo ? (
+                <Badge><Stamp className="mr-1 h-3 w-3" />Carimbo</Badge>
+              ) : null}
+              {analysis.tem_tabelas ? (
+                <Badge><Table2 className="mr-1 h-3 w-3" />Tabelas</Badge>
+              ) : null}
+              {analysis.tem_formulario ? (
+                <Badge><ClipboardList className="mr-1 h-3 w-3" />Formulário</Badge>
+              ) : null}
+            </div>
+
+            {Array.isArray(analysis.conflitos_documentais) && analysis.conflitos_documentais.length > 0 ? (
+              <Card className="border-destructive/30 bg-destructive/5 p-4">
+                <div className="flex items-center gap-2 font-medium text-destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  {analysis.conflitos_documentais.length} conflito(s) documental(is)
+                </div>
+                <div className="mt-3 space-y-3">
+                  {analysis.conflitos_documentais.map((conflict, index) => (
+                    <div key={index} className="rounded-lg border border-destructive/20 bg-background p-3">
+                      <div className="font-medium">{conflict.campo || "Campo não identificado"}</div>
+                      {conflict.observacao ? (
+                        <div className="mt-1 text-sm text-muted-foreground">{conflict.observacao}</div>
+                      ) : null}
+                      {Array.isArray(conflict.trechos) && conflict.trechos.length > 0 ? (
+                        <div className="mt-2 space-y-2">
+                          {conflict.trechos.map((excerpt, j) => (
+                            <div key={j} className="rounded-md border bg-muted/40 p-2 text-xs">
+                              “{excerpt}”
+                            </div>
+                          ))}
                         </div>
-                      </li>
-                    ))}
-                  </ol>
-                </div>
-                {(a.cabecalhos?.length > 0 || a.rodapes?.length > 0) && (
-                  <div className="grid md:grid-cols-2 gap-4">
-                    {a.cabecalhos?.length > 0 && <ListBlock label="Cabeçalhos recorrentes" items={a.cabecalhos} />}
-                    {a.rodapes?.length > 0 && <ListBlock label="Rodapés recorrentes" items={a.rodapes} />}
-                  </div>
-                )}
-              </AccordionContent>
-            </AccordionItem>
-
-            {/* Bloco B — Campos */}
-            <AccordionItem value="b" className="border-border bg-card rounded-lg overflow-hidden">
-              <AccordionTrigger className="px-5 hover:no-underline">
-                <span className="text-sm font-medium">Bloco B — Campos literais rastreáveis ({(a.campos_literais || []).length})</span>
-              </AccordionTrigger>
-              <AccordionContent className="px-5 pb-5">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
-                    <thead className="bg-muted/30 text-muted-foreground uppercase tracking-wider">
-                      <tr>
-                        <th className="text-left px-3 py-2 font-medium">Campo</th>
-                        <th className="text-left px-3 py-2 font-medium">Valor</th>
-                        <th className="text-left px-3 py-2 font-medium">Pg</th>
-                        <th className="text-left px-3 py-2 font-medium">Trecho</th>
-                        <th className="text-left px-3 py-2 font-medium">Score</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {(a.campos_literais || []).map((c: any, i: number) => (
-                        <tr key={i} className="hover:bg-muted/20 align-top">
-                          <td className="px-3 py-2 font-medium">{c.nome}</td>
-                          <td className="px-3 py-2">{c.valor || "—"}</td>
-                          <td className="px-3 py-2 text-muted-foreground">{c.pagina ?? "—"}</td>
-                          <td className="px-3 py-2 text-muted-foreground italic max-w-md truncate" title={c.trecho}>{c.trecho || "—"}</td>
-                          <td className="px-3 py-2"><ScoreBadge score={c.score} /></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-
-            {/* Bloco D — Taxonomia */}
-            <AccordionItem value="d" className="border-border bg-card rounded-lg overflow-hidden">
-              <AccordionTrigger className="px-5 hover:no-underline">
-                <span className="text-sm font-medium">Bloco D — Taxonomia do conteúdo</span>
-              </AccordionTrigger>
-              <AccordionContent className="px-5 pb-5">
-                <div className="space-y-2">
-                  {(a.taxonomia_blocos || []).map((t: any, i: number) => (
-                    <div key={i} className="flex items-start gap-3 p-3 rounded-md bg-muted/20 border border-border/50">
-                      <Badge className="capitalize">{t.categoria}</Badge>
-                      <div className="flex-1 text-sm">
-                        <div className="font-medium">{t.bloco}</div>
-                        {t.evidencia && <div className="text-xs text-muted-foreground italic mt-0.5">"{t.evidencia}"</div>}
-                      </div>
-                      {t.pagina != null && <div className="text-xs text-muted-foreground">pg {t.pagina}</div>}
+                      ) : null}
                     </div>
                   ))}
                 </div>
-              </AccordionContent>
-            </AccordionItem>
+              </Card>
+            ) : null}
+          </Card>
 
-            {/* Bloco E — Análise comparável */}
-            <AccordionItem value="e" className="border-border bg-card rounded-lg overflow-hidden">
-              <AccordionTrigger className="px-5 hover:no-underline">
-                <span className="text-sm font-medium">Bloco E — Análise comparável</span>
-              </AccordionTrigger>
-              <AccordionContent className="px-5 pb-5">
-                <Tabs defaultValue="resumos">
-                  <TabsList>
-                    <TabsTrigger value="resumos">Resumos</TabsTrigger>
-                    <TabsTrigger value="riscos">Riscos</TabsTrigger>
-                    <TabsTrigger value="padroes">Padrões</TabsTrigger>
-                    <TabsTrigger value="insights">Insights</TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="resumos" className="space-y-3 pt-3">
-                    <Section title="Resumo executivo" body={a.resumo_executivo} />
-                    <Section title="Resumo técnico" body={a.resumo_tecnico} />
-                    <Section title="Resumo comercial" body={a.resumo_comercial} />
-                    <Section title="Resumo contratual" body={a.resumo_contratual} />
-                  </TabsContent>
-                  <TabsContent value="riscos" className="space-y-3 pt-3">
-                    <Section title="Riscos operacionais" body={a.riscos_operacionais} tone="warning" />
-                    <Section title="Riscos jurídicos" body={a.riscos_juridicos} tone="warning" />
-                  </TabsContent>
-                  <TabsContent value="padroes" className="space-y-3 pt-3">
-                    <Section title="Posicionamento" body={a.padrao_posicionamento} />
-                    <Section title="Transferência de risco" body={a.padrao_transferencia_risco} />
-                    <Section title="Padrão de pagamento" body={a.padrao_pagamento} />
-                    <Section title="Padrão de garantia" body={a.padrao_garantia} />
-                    <Section title="Padrão técnico" body={a.padrao_tecnico} />
-                  </TabsContent>
-                  <TabsContent value="insights" className="pt-3">
-                    <Section title="Insights de benchmarking" body={a.insights_benchmarking} tone="primary" />
-                  </TabsContent>
-                </Tabs>
-              </AccordionContent>
-            </AccordionItem>
+          <Tabs defaultValue="summary" className="space-y-4">
+            <TabsList className="flex flex-wrap">
+              <TabsTrigger value="summary">Resumos</TabsTrigger>
+              <TabsTrigger value="structure">Estrutura</TabsTrigger>
+              <TabsTrigger value="fields">Campos literais</TabsTrigger>
+              <TabsTrigger value="taxonomy">Taxonomia</TabsTrigger>
+              <TabsTrigger value="inferences">Inferências</TabsTrigger>
+              <TabsTrigger value="raw">Texto bruto</TabsTrigger>
+            </TabsList>
 
-            {/* Bloco F — Inferências */}
-            <AccordionItem value="f" className="border-border bg-card rounded-lg overflow-hidden">
-              <AccordionTrigger className="px-5 hover:no-underline">
-                <span className="text-sm font-medium">Bloco F — Inferências (transparentes)</span>
-              </AccordionTrigger>
-              <AccordionContent className="px-5 pb-5">
-                <div className="grid md:grid-cols-2 gap-3">
-                  {(a.inferencias || []).map((inf: any, i: number) => (
-                    <Card key={i} className="p-4 gradient-surface border-border">
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <div>
-                          <Badge variant="secondary" className="text-[10px] mb-1">INFERÊNCIA</Badge>
-                          <div className="text-xs uppercase text-muted-foreground">{inf.chave?.replace(/_/g, " ")}</div>
-                          <div className="text-sm font-semibold mt-0.5">{inf.valor}</div>
-                        </div>
-                        <ScoreBadge score={inf.confianca} />
-                      </div>
-                      {inf.justificativa && <div className="text-xs text-muted-foreground mb-2">{inf.justificativa}</div>}
-                      {Array.isArray(inf.evidencias) && inf.evidencias.length > 0 && (
-                        <div className="text-[11px] space-y-0.5 border-t border-border pt-2 mt-2">
-                          <div className="text-muted-foreground uppercase tracking-wider">Evidências</div>
-                          {inf.evidencias.map((e: string, j: number) => (
-                            <div key={j} className="italic text-muted-foreground">"{e}"</div>
-                          ))}
-                        </div>
-                      )}
-                    </Card>
-                  ))}
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
-
-          {/* histórico de versões */}
-          {data && data.analyses.length > 1 && (
-            <Card className="p-4 gradient-surface border-border">
-              <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Histórico de versões</div>
-              <div className="text-xs text-muted-foreground">
-                {data.analyses.map((v: any) => `v${v.versao}`).join(" · ")} (visualizando v{a.versao})
+            <TabsContent value="summary">
+              <div className="grid gap-4 lg:grid-cols-2">
+                <SectionCard title="Resumo executivo" body={analysis.resumo_executivo} />
+                <SectionCard title="Resumo técnico" body={analysis.resumo_tecnico} />
+                <SectionCard title="Resumo comercial" body={analysis.resumo_comercial} />
+                <SectionCard title="Resumo contratual" body={analysis.resumo_contratual} />
+                <SectionCard title="Riscos operacionais" body={analysis.riscos_operacionais} tone="warning" />
+                <SectionCard title="Riscos jurídicos" body={analysis.riscos_juridicos} tone="warning" />
+                <SectionCard title="Padrão de posicionamento" body={analysis.padrao_posicionamento} />
+                <SectionCard title="Transferência de risco" body={analysis.padrao_transferencia_risco} />
+                <SectionCard title="Padrão de pagamento" body={analysis.padrao_pagamento} />
+                <SectionCard title="Padrão de garantia" body={analysis.padrao_garantia} />
+                <SectionCard title="Padrão técnico" body={analysis.padrao_tecnico} />
+                <SectionCard title="Insights de benchmarking" body={analysis.insights_benchmarking} tone="primary" />
               </div>
-            </Card>
-          )}
+            </TabsContent>
+
+            <TabsContent value="structure">
+              <div className="grid gap-4 lg:grid-cols-2">
+                <Card className="p-5">
+                  <div className="mb-3 text-lg font-semibold">Seções identificadas</div>
+                  <div className="space-y-3">
+                    {(analysis.secoes || []).map((section, idx) => (
+                      <div key={idx} className="rounded-lg border p-3">
+                        <div className="font-medium">
+                          {section.ordem ? `${section.ordem}. ` : ""}
+                          {section.titulo || "Sem título"}
+                        </div>
+                        <div className="mt-1 text-sm text-muted-foreground">
+                          {section.tipo || "tipo não informado"} · página{" "}
+                          {section.pagina_inicio ?? "—"}
+                          {section.pagina_fim && section.pagina_fim !== section.pagina_inicio
+                            ? `-${section.pagina_fim}`
+                            : ""}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+
+                <Card className="p-5 space-y-4">
+                  <div>
+                    <div className="text-lg font-semibold">Cabeçalhos recorrentes</div>
+                    <div className="mt-3 space-y-2">
+                      {(analysis.cabecalhos || []).length ? (
+                        (analysis.cabecalhos || []).map((item, idx) => (
+                          <div key={idx} className="rounded-md border bg-muted/40 p-2 text-sm">
+                            {item}
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-sm text-muted-foreground">Nenhum cabeçalho identificado.</div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-lg font-semibold">Rodapés recorrentes</div>
+                    <div className="mt-3 space-y-2">
+                      {(analysis.rodapes || []).length ? (
+                        (analysis.rodapes || []).map((item, idx) => (
+                          <div key={idx} className="rounded-md border bg-muted/40 p-2 text-sm">
+                            {item}
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-sm text-muted-foreground">Nenhum rodapé identificado.</div>
+                      )}
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="fields">
+              <Card className="p-5">
+                <div className="mb-4 flex items-center justify-between">
+                  <div className="text-lg font-semibold">Campos literais rastreáveis</div>
+                  <Badge variant="secondary">{(analysis.campos_literais || []).length} campo(s)</Badge>
+                </div>
+
+                {(analysis.campos_literais || []).length ? (
+                  <div className="space-y-3">
+                    {(analysis.campos_literais || []).map((field, idx) => (
+                      <div key={idx} className="rounded-lg border p-4">
+                        <div className="grid gap-3 md:grid-cols-[220px_minmax(0,1fr)_100px_110px]">
+                          <FieldCell label="Campo" value={field.nome || "—"} />
+                          <FieldCell label="Valor" value={field.valor || "—"} />
+                          <FieldCell label="Página" value={field.pagina != null ? String(field.pagina) : "—"} />
+                          <FieldCell label="Score" value={percent(field.score)} />
+                        </div>
+                        {field.trecho ? (
+                          <div className="mt-3 rounded-md border bg-muted/40 p-3 text-sm">
+                            “{field.trecho}”
+                          </div>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground">Nenhum campo literal disponível.</div>
+                )}
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="taxonomy">
+              <Card className="p-5">
+                <div className="mb-4 text-lg font-semibold">Taxonomia do conteúdo</div>
+                {(analysis.taxonomia_blocos || []).length ? (
+                  <div className="space-y-3">
+                    {(analysis.taxonomia_blocos || []).map((block, idx) => (
+                      <div key={idx} className="rounded-lg border p-4">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge>{block.categoria || "categoria"}</Badge>
+                          {block.pagina != null ? <Badge variant="outline">pg {block.pagina}</Badge> : null}
+                        </div>
+                        <div className="mt-3 font-medium">{block.bloco || "Bloco sem descrição"}</div>
+                        {block.evidencia ? (
+                          <div className="mt-2 rounded-md border bg-muted/40 p-3 text-sm">
+                            “{block.evidencia}”
+                          </div>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground">Nenhuma taxonomia disponível.</div>
+                )}
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="inferences">
+              <Card className="p-5">
+                <div className="mb-4 text-lg font-semibold">Inferências transparentes</div>
+                {(analysis.inferencias || []).length ? (
+                  <div className="space-y-4">
+                    {(analysis.inferencias || []).map((inf, idx) => (
+                      <div key={idx} className="rounded-lg border p-4">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant="secondary">Inferência</Badge>
+                          {inf.score != null ? (
+                            <Badge variant={forensicStatusTone(inf.score) as any}>{percent(inf.score)}</Badge>
+                          ) : null}
+                        </div>
+                        <div className="mt-3 text-sm text-muted-foreground">
+                          {inf.chave?.replace(/_/g, " ") || "chave"}
+                        </div>
+                        <div className="mt-1 text-lg font-semibold">{inf.valor || "—"}</div>
+                        {inf.justificativa ? (
+                          <div className="mt-3 text-sm text-muted-foreground">{inf.justificativa}</div>
+                        ) : null}
+                        {Array.isArray(inf.evidencias) && inf.evidencias.length > 0 ? (
+                          <div className="mt-3 space-y-2">
+                            {inf.evidencias.map((ev, j) => (
+                              <div key={j} className="rounded-md border bg-muted/40 p-2 text-sm">
+                                “{ev}”
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground">Nenhuma inferência disponível.</div>
+                )}
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="raw">
+              <div className="grid gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
+                <Card className="p-5">
+                  <div className="mb-4 flex items-center gap-2 text-lg font-semibold">
+                    <ScanText className="h-5 w-5" />
+                    Mapa do texto bruto
+                  </div>
+                  <div className="space-y-2">
+                    {chunks.length ? (
+                      chunks.map((chunk) => (
+                        <div key={chunk.id} className="rounded-md border p-3 text-sm">
+                          <div className="font-medium">Bloco {chunk.index}</div>
+                          <div className="text-muted-foreground">{chunk.length} caracteres</div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-sm text-muted-foreground">Documento sem texto bruto disponível.</div>
+                    )}
+                  </div>
+                </Card>
+
+                <Card className="p-5">
+                  <div className="mb-4 text-lg font-semibold">Texto bruto segmentado</div>
+                  <div className="space-y-4 max-h-[70vh] overflow-auto">
+                    {chunks.length ? (
+                      chunks.map((chunk) => (
+                        <div key={chunk.id} className="rounded-lg border p-4">
+                          <div className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">
+                            Bloco {chunk.index}
+                          </div>
+                          <pre className="whitespace-pre-wrap break-words text-sm">{chunk.text}</pre>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-sm text-muted-foreground">Sem conteúdo textual.</div>
+                    )}
+                  </div>
+                </Card>
+              </div>
+            </TabsContent>
+          </Tabs>
         </>
       )}
     </div>
   );
 }
 
-function ScoreCard({ label, value }: { label: string; value: string }) {
+function TopMetric({
+  label,
+  value,
+  helper,
+}: {
+  label: string;
+  value: string;
+  helper?: string;
+}) {
   return (
-    <Card className="p-4 gradient-surface border-border">
-      <div className="text-xs uppercase tracking-wider text-muted-foreground">{label}</div>
-      <div className="text-lg font-semibold mt-1 truncate">{value}</div>
+    <Card className="p-4">
+      <div className="text-sm text-muted-foreground">{label}</div>
+      <div className="mt-1 line-clamp-2 text-lg font-semibold">{value || "—"}</div>
+      {helper ? <div className="mt-1 text-xs text-muted-foreground">{helper}</div> : null}
     </Card>
   );
 }
 
-function ScoreBadge({ score }: { score?: number }) {
-  if (score == null) return <span className="text-muted-foreground text-xs">—</span>;
-  const pct = Math.round(score * 100);
-  const tone = pct >= 75 ? "default" : pct >= 50 ? "secondary" : "destructive";
-  return <Badge variant={tone as any} className="text-[10px]">{pct}%</Badge>;
-}
-
-function Section({ title, body, tone }: { title: string; body?: string | null; tone?: "warning" | "primary" }) {
-  if (!body) return null;
-  const cls = tone === "warning" ? "bg-warning/10 border-warning/30" : tone === "primary" ? "bg-primary/5 border-primary/20" : "gradient-surface border-border";
+function ScoreCard({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: "default" | "secondary" | "destructive";
+}) {
   return (
-    <Card className={`p-4 ${cls}`}>
-      <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1.5">{title}</div>
-      <div className="text-sm whitespace-pre-wrap">{body}</div>
+    <Card className="p-4">
+      <div className="text-sm text-muted-foreground">{label}</div>
+      <div className="mt-2 flex items-center gap-2">
+        <div className="text-2xl font-semibold">{value}</div>
+        <Badge variant={tone as any}>{value}</Badge>
+      </div>
     </Card>
   );
 }
 
-function ListBlock({ label, items }: { label: string; items: string[] }) {
+function SectionCard({
+  title,
+  body,
+  tone,
+}: {
+  title: string;
+  body?: string | null;
+  tone?: "warning" | "primary";
+}) {
+  const cls =
+    tone === "warning"
+      ? "border-warning/30 bg-warning/10"
+      : tone === "primary"
+      ? "border-primary/20 bg-primary/5"
+      : "";
+
+  return (
+    <Card className={`p-5 ${cls}`}>
+      <div className="text-lg font-semibold">{title}</div>
+      <div className="mt-3 whitespace-pre-wrap text-sm text-muted-foreground">
+        {body || "—"}
+      </div>
+    </Card>
+  );
+}
+
+function FieldCell({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">{label}</div>
-      <ul className="text-xs text-muted-foreground space-y-0.5">
-        {items.map((it, i) => <li key={i} className="truncate">· {it}</li>)}
-      </ul>
+      <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="mt-1 font-medium">{value || "—"}</div>
     </div>
   );
 }
