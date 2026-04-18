@@ -1,11 +1,23 @@
 // Browser-side text extraction for PDF, DOCX, XLSX
-import * as pdfjsLib from "pdfjs-dist";
-// Bundle the worker locally via Vite (?url) — avoids CDN/version mismatch failures
-import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+// Lazy/dynamic imports to avoid loading pdfjs-dist during SSR (it requires DOMMatrix).
 import mammoth from "mammoth";
 import * as XLSX from "xlsx";
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+let pdfjsLibPromise: Promise<typeof import("pdfjs-dist")> | null = null;
+async function getPdfjs() {
+  if (typeof window === "undefined") {
+    throw new Error("PDF parsing only available in the browser");
+  }
+  if (!pdfjsLibPromise) {
+    pdfjsLibPromise = (async () => {
+      const lib = await import("pdfjs-dist");
+      const workerUrl = (await import("pdfjs-dist/build/pdf.worker.min.mjs?url")).default;
+      lib.GlobalWorkerOptions.workerSrc = workerUrl;
+      return lib;
+    })();
+  }
+  return pdfjsLibPromise;
+}
 
 export type ParsedDoc = {
   text: string;
