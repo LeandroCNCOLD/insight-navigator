@@ -307,6 +307,26 @@ function extractTechnicalHints(sourceText: string) {
   return hints;
 }
 
+// Known competitor catalog — order matters (specific before generic).
+// "fallback" is true when AI didn't detect anything in the text.
+const KNOWN_COMPETITORS: Array<{ name: string; patterns: RegExp[] }> = [
+  { name: "Conela", patterns: [/\bconela\b/i, /conela\.com/i] },
+  { name: "Thermopro", patterns: [/\bthermo\s*pro\b/i, /thermopro/i] },
+  { name: "Kit Frigor", patterns: [/\bkit\s*frigor\b/i] },
+  { name: "DNS", patterns: [/\bDNS\s+refrigera/i, /\bDNS\s+(?:câmara|camara|frio)/i] },
+  { name: "Refrimaq", patterns: [/\brefrimaq\b/i] },
+  { name: "Frigelar", patterns: [/\bfrigelar\b/i] },
+  { name: "Plotter", patterns: [/\bplotter\s+refrigera/i] },
+  { name: "Mecalux Frio", patterns: [/\bmecalux\b/i] },
+];
+
+function detectManufacturer(sourceText: string): string | null {
+  for (const c of KNOWN_COMPETITORS) {
+    if (c.patterns.some((p) => p.test(sourceText))) return c.name;
+  }
+  return null;
+}
+
 function mergeTechnicalHints(extracted: any, sourceText: string) {
   const normalized = normalizeExtraction(extracted) || {};
   const hints = extractTechnicalHints(sourceText);
