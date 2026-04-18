@@ -472,7 +472,7 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: `IA indisponível após retries: ${lastError || "sem detalhes"}` }), { status: lastStatus === 503 ? 503 : 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const extracted = JSON.parse(toolCall.function.arguments);
+    const extracted = mergeTechnicalHints(JSON.parse(toolCall.function.arguments), content);
     const validation = validateExtraction(extracted, content);
     if (!validation.valid) {
       return new Response(JSON.stringify({ error: validation.reason }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
