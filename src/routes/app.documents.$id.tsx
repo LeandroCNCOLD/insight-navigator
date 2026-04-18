@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Download, FileText, Sparkles } from "lucide-react";
+import { ArrowLeft, Download, FileText, Sparkles, Ruler, Box, Layers, Zap, Thermometer, Droplets } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
@@ -132,6 +132,8 @@ function DocumentDetailPage() {
 
           {p ? (
             <>
+              <ChamberHighlight dt={p.dados_tecnicos || {}} />
+
               <Card className="p-5 space-y-4">
                 <div className="text-lg font-semibold">Resumo comercial da proposta</div>
                 <div className="grid gap-4 md:grid-cols-2">
@@ -147,7 +149,7 @@ function DocumentDetailPage() {
               </Card>
 
               <Card className="p-5 space-y-4">
-                <div className="text-lg font-semibold">Dados técnicos</div>
+                <div className="text-lg font-semibold">Dados técnicos (todos os campos)</div>
                 {p.dados_tecnicos && Object.keys(p.dados_tecnicos).length ? (
                   <div className="grid gap-4 md:grid-cols-2">
                     {Object.entries(p.dados_tecnicos || {}).map(([key, value]) => (
@@ -250,6 +252,158 @@ function Field({ label, value }: { label: string; value: any }) {
       <div className="mt-1 font-medium">
         {value === null || value === undefined || value === "" ? "—" : String(value)}
       </div>
+    </div>
+  );
+}
+
+function fmtNum(v: any, suffix = "") {
+  if (v == null || v === "") return "—";
+  const n = Number(v);
+  if (!Number.isFinite(n)) return String(v);
+  const s = n % 1 === 0 ? n.toString() : n.toFixed(2);
+  return suffix ? `${s} ${suffix}` : s;
+}
+
+function ChamberHighlight({ dt }: { dt: any }) {
+  const c = dt.comprimento_m;
+  const l = dt.largura_m;
+  const a = dt.altura_m;
+  const volume = dt.volume_m3 ?? (c && l && a ? Number((c * l * a).toFixed(2)) : null);
+  const area = dt.area_m2 ?? (c && l ? Number((c * l).toFixed(2)) : null);
+
+  const isoParede =
+    [dt.isolamento_tipo, dt.isolamento_espessura_mm ? `${dt.isolamento_espessura_mm}mm` : null]
+      .filter(Boolean)
+      .join(" · ") ||
+    dt.isolamento ||
+    dt.painel_isolante_descricao ||
+    null;
+
+  const hasAny =
+    c || l || a || volume || isoParede || dt.isolamento_piso || dt.tensao || dt.temperatura_alvo_c;
+
+  return (
+    <Card className="p-5 space-y-4 border-primary/30 bg-primary/5">
+      <div className="flex items-center gap-2">
+        <Box className="h-5 w-5 text-primary" />
+        <div className="text-lg font-semibold">Câmara — destaque visual</div>
+      </div>
+
+      {!hasAny ? (
+        <div className="text-sm text-muted-foreground">
+          Nenhuma dimensão ou isolamento foi extraído desta proposta. Reprocesse o documento se a
+          extração falhou.
+        </div>
+      ) : (
+        <>
+          <div className="grid gap-3 md:grid-cols-3">
+            <HighlightTile
+              icon={Ruler}
+              label="Comprimento"
+              value={fmtNum(c, "m")}
+              accent="C"
+            />
+            <HighlightTile
+              icon={Ruler}
+              label="Largura"
+              value={fmtNum(l, "m")}
+              accent="L"
+            />
+            <HighlightTile
+              icon={Ruler}
+              label="Altura / Pé-direito"
+              value={fmtNum(a ?? dt.pe_direito_m, "m")}
+              accent="A"
+            />
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-3">
+            <HighlightTile
+              icon={Box}
+              label="Volume total"
+              value={fmtNum(volume, "m³")}
+            />
+            <HighlightTile icon={Box} label="Área" value={fmtNum(area, "m²")} />
+            <HighlightTile
+              icon={Thermometer}
+              label="Temperatura alvo"
+              value={dt.temperatura_alvo_c != null ? `${dt.temperatura_alvo_c} °C` : "—"}
+            />
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <HighlightTile
+              icon={Layers}
+              label="Isolamento parede / teto"
+              value={isoParede || "—"}
+            />
+            <HighlightTile
+              icon={Layers}
+              label="Isolamento piso"
+              value={dt.isolamento_piso || "—"}
+            />
+            <HighlightTile icon={Zap} label="Tensão elétrica" value={dt.tensao || "—"} />
+            <HighlightTile
+              icon={Droplets}
+              label="Umidade alvo"
+              value={dt.umidade_alvo_pct != null ? `${dt.umidade_alvo_pct} %` : "—"}
+            />
+          </div>
+
+          {(dt.carga_termica_kcal || dt.potencia_frigorifica_instalada_kcal) && (
+            <div className="grid gap-3 md:grid-cols-3 pt-2 border-t border-primary/20">
+              <HighlightTile
+                icon={Thermometer}
+                label="Carga térmica requerida"
+                value={fmtNum(dt.carga_termica_kcal, "kcal/h")}
+              />
+              <HighlightTile
+                icon={Thermometer}
+                label="Capacidade instalada"
+                value={fmtNum(dt.potencia_frigorifica_instalada_kcal, "kcal/h")}
+              />
+              <HighlightTile
+                icon={Thermometer}
+                label="Sobra de capacidade"
+                value={
+                  dt.sobra_capacidade_pct != null
+                    ? `${Number(dt.sobra_capacidade_pct).toFixed(1)} %`
+                    : "—"
+                }
+              />
+            </div>
+          )}
+        </>
+      )}
+    </Card>
+  );
+}
+
+function HighlightTile({
+  icon: Icon,
+  label,
+  value,
+  accent,
+}: {
+  icon: any;
+  label: string;
+  value: string;
+  accent?: string;
+}) {
+  return (
+    <div className="rounded-lg border bg-background p-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-muted-foreground">
+          <Icon className="h-3.5 w-3.5" />
+          {label}
+        </div>
+        {accent && (
+          <span className="text-[10px] font-bold text-primary/70 bg-primary/10 px-1.5 rounded">
+            {accent}
+          </span>
+        )}
+      </div>
+      <div className="mt-1.5 text-base font-semibold">{value}</div>
     </div>
   );
 }
