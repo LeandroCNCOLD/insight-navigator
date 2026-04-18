@@ -19,6 +19,7 @@ export const Route = createFileRoute("/app/documents/")({
 
 function DocsList() {
   const [q, setQ] = useState("");
+  const [fab, setFab] = useState<string>("__all__");
   const [queue, setQueue] = useState<QueueItem[]>([]);
   useEffect(() => {
     const unsub = uploadQueue.subscribe(setQueue);
@@ -29,7 +30,7 @@ function DocsList() {
     queryKey: ["documents"],
     queryFn: async () => {
       const { data } = await supabase.from("documents")
-        .select("id,file_name,file_type,file_size,status,created_at,tem_analise_forense,competitor:competitors(nome),client:clients(nome,estado)")
+        .select("id,file_name,file_type,file_size,status,created_at,tem_analise_forense,competitor:competitors(id,nome),client:clients(nome,estado)")
         .order("created_at", { ascending: false });
       return data || [];
     },
@@ -51,7 +52,18 @@ function DocsList() {
       .map((it) => it.documentId),
   );
 
-  const filtered = (data || []).filter((d) => !q || d.file_name.toLowerCase().includes(q.toLowerCase()));
+  const fabricantes = Array.from(
+    new Set((data || []).map((d: any) => d.competitor?.nome).filter(Boolean)),
+  ).sort() as string[];
+
+  const filtered = (data || []).filter((d: any) => {
+    if (q && !d.file_name.toLowerCase().includes(q.toLowerCase())) return false;
+    if (fab !== "__all__") {
+      if (fab === "__none__") return !d.competitor?.nome;
+      if (d.competitor?.nome !== fab) return false;
+    }
+    return true;
+  });
 
   const reprocess = (id: string, name: string) => {
     uploadQueue.reprocess(id, name);
@@ -89,7 +101,27 @@ function DocsList() {
         }
       />
 
-      <Input placeholder="Buscar por nome..." value={q} onChange={(e) => setQ(e.target.value)} className="max-w-sm" />
+      <div className="flex flex-wrap items-center gap-2">
+        <Input placeholder="Buscar por nome..." value={q} onChange={(e) => setQ(e.target.value)} className="max-w-sm" />
+        <div className="flex flex-wrap gap-1.5">
+          <FabChip label="Todos" active={fab === "__all__"} onClick={() => setFab("__all__")} count={(data || []).length} />
+          {fabricantes.map((name) => (
+            <FabChip
+              key={name}
+              label={name}
+              active={fab === name}
+              onClick={() => setFab(name)}
+              count={(data || []).filter((d: any) => d.competitor?.nome === name).length}
+            />
+          ))}
+          <FabChip
+            label="Sem fabricante"
+            active={fab === "__none__"}
+            onClick={() => setFab("__none__")}
+            count={(data || []).filter((d: any) => !d.competitor?.nome).length}
+          />
+        </div>
+      </div>
 
       {filtered.length === 0 ? (
         <EmptyState icon={FileText} title="Nenhum documento" description="Faça upload do primeiro arquivo para começar." action={
