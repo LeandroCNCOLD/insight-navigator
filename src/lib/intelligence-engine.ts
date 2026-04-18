@@ -78,6 +78,39 @@ export async function streamIntelligenceAnswer(
   return accumulated;
 }
 
+export type IntelligenceQueryResult = {
+  answer: string;
+  insights: string[];
+  patterns: string[];
+  risks: string[];
+};
+
+export async function runIntelligenceQuery(question: string): Promise<IntelligenceQueryResult> {
+  let answer = "";
+  await streamIntelligenceAnswer(
+    [{ role: "user", content: question }],
+    (text) => {
+      answer = text;
+    },
+  );
+
+  const extractSection = (label: RegExp): string[] => {
+    const match = answer.match(label);
+    if (!match) return [];
+    return match[1]
+      .split(/\n+/)
+      .map((line) => line.replace(/^[-*\d.\s]+/, "").trim())
+      .filter(Boolean);
+  };
+
+  return {
+    answer,
+    insights: extractSection(/insights?[:\s]*\n([\s\S]*?)(?=\n\s*(?:padr[õo]es|riscos|$))/i),
+    patterns: extractSection(/padr[õo]es[^:]*[:\s]*\n([\s\S]*?)(?=\n\s*(?:riscos|insights?|$))/i),
+    risks: extractSection(/riscos[:\s]*\n([\s\S]*?)(?=\n\s*(?:insights?|padr[õo]es|$))/i),
+  };
+}
+
 export const INTELLIGENCE_SUGGESTIONS = [
   "Qual concorrente tem maior valor total mapeado na base?",
   "Quais estados concentram mais propostas?",
