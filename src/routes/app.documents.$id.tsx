@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Download, FileText, Sparkles } from "lucide-react";
+import { ArrowLeft, Download, FileText, Sparkles, Ruler, Box, Layers, Zap, Thermometer, Droplets } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
