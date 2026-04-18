@@ -27,6 +27,7 @@ export type ParsedDoc = {
 
 export async function parsePdf(file: File): Promise<ParsedDoc> {
   const data = new Uint8Array(await file.arrayBuffer());
+  const pdfjsLib = await getPdfjs();
   const pdf = await pdfjsLib.getDocument({ data }).promise;
   let text = "";
   for (let i = 1; i <= pdf.numPages; i++) {
