@@ -1,7 +1,11 @@
 // Global upload queue — singleton that survives route changes.
 // Allows users to navigate away while uploads/AI processing continue in background.
 import { supabase } from "@/integrations/supabase/client";
-import { parseDocument } from "@/lib/document-parsers";
+// Lazy import — document-parsers loads pdfjs-dist which is browser-only.
+async function parseDocument(file: File) {
+  const mod = await import("@/lib/document-parsers");
+  return mod.parseDocument(file);
+}
 
 export type QueueStatus =
   | "pending"
