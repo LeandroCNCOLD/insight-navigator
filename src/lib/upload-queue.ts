@@ -300,6 +300,36 @@ class UploadQueue {
         }
       }
 
+      // 5b) Resolve competitor (manufacturer) — fallback to "Conela" when not detected
+      const fabricanteNome = (ex.fabricante && String(ex.fabricante).trim()) || "Conela";
+      let competitorId: string | null = null;
+      {
+        const { data: existingComp } = await supabase
+          .from("competitors")
+          .select("id")
+          .eq("owner_id", u.user.id)
+          .ilike("nome", fabricanteNome)
+          .maybeSingle();
+        if (existingComp) competitorId = existingComp.id;
+        else {
+          const { data: newComp } = await supabase
+            .from("competitors")
+            .insert({
+              owner_id: u.user.id,
+              nome: fabricanteNome,
+              descricao:
+                ex.fabricante_origem === "ia"
+                  ? "Detectado pela IA"
+                  : ex.fabricante_origem === "heuristica"
+                    ? "Detectado por padrão de texto"
+                    : "Atribuído por padrão (Conela)",
+            })
+            .select()
+            .single();
+          competitorId = newComp?.id || null;
+        }
+      }
+
       // 6) Insert proposal
       const { data: prop } = await supabase
         .from("proposals")
