@@ -19,14 +19,17 @@ REGRAS CRÍTICAS:
 - Gere resumos analíticos de alto nível (executivo, técnico, comercial).
 - Classifique porte do projeto (pequeno < R$ 200k, médio R$ 200k-1M, grande > R$ 1M) e indício de fechamento (baixo/médio/alto) baseado em sinais como assinatura, status, condições.
 
-EXTRAÇÃO TÉCNICA OBRIGATÓRIA:
-- Procure explicitamente medidas da câmara: comprimento, largura, altura e pé-direito quando houver.
-- Procure painel/isolamento: tipo (PIR, PUR, EPS ou similar), espessura em mm, densidade e descrição do painel quando houver.
-- Procure capacidade térmica / carga térmica em kcal/h e qualquer capacidade por equipamento.
-- Procure temperatura-alvo, umidade, aplicação, produto armazenado, volume, área e qualquer especificação dimensional.
-- Se houver texto como "60 x 25 x 7,5 m", converta para comprimento/largura/altura e preserve também a string original em "dimensoes".
-- Se houver texto como "PIR 70", "PIR-70", "EPS 100" ou similar, normalize em campos estruturados e também em "isolamento".
-- Se houver múltiplas informações técnicas, priorize trazer o máximo de campos preenchidos com evidência, mesmo que dados comerciais estejam ausentes.
+EXTRAÇÃO TÉCNICA OBRIGATÓRIA (padrão Conela e similares — câmaras frias / climatização industrial):
+- FABRICANTE/CONCORRENTE: identifique a empresa que ASSINA/EMITIU a proposta (Conela, Thermopro, Kit Frigor, DNS, Refrimaq, Frigelar, Plotter, etc.) — NÃO o cliente. Procure no cabeçalho, rodapé, logo, CNPJ, "razão social", "atenciosamente", "vendedor". Se não conseguir identificar, retorne null.
+- Procure explicitamente medidas da câmara: comprimento (C), largura (L), altura (A), pé-direito (m).
+- Procure painel/isolamento de PAREDE/TETO e de PISO separadamente: tipo (PIR, PUR, EPS, concreto), espessura (mm), densidade.
+- Procure tensão elétrica (ex: "380V/3F – 60HZ"), produto armazenado, temperatura interna desejada, umidade relativa interna, funcionamento do compressor (h/dia), fator de segurança (%).
+- Procure carga térmica REQUERIDA (kcal/h) E carga térmica INSTALADA/OFERTADA (kcal/h) — campos diferentes.
+- Para cada equipamento ofertado, capture: modelo, tipo de instalação (Plug In, Split, Self Out, Monobloco, Rack), quantidade, potência (HP) por unidade, compressor (Scroll Inverter, Semi-hermético, etc.), condensador (On Board, Remoto), tensão, gás refrigerante (R-410a, R-404A, R-449A, R-22, NH3, CO2), tipo de desumidificação (Gás Quente, Elétrico, Nenhum), tipo de degelo (Ventilação, Elétrico, Gás Quente, Água), tipo de expansão (Direta, Indireta, Eletrônica), vazão de ar do EVP por unidade (m³/h), flecha de ar por unidade (m), capacidade unitária (kcal/h).
+- Procure também: volume da câmara (m³), número de trocas de ar por hora, potência frigorífica a ser instalada total (kcal/h), margem/sobra de segurança.
+- Se houver texto como "24 x 20 x 6m", converta para comprimento/largura/altura e preserve "dimensoes".
+- Se houver "PUR 70", "PIR-100", "EPS 150" — normalize em isolamento_tipo + isolamento_espessura_mm.
+- Mesmo que dados comerciais estejam ausentes, priorize preencher TODOS os campos técnicos disponíveis com evidência.
 
 Retorne SOMENTE chamando a função extract_proposal.`;
 
@@ -43,6 +46,8 @@ const TOOL_SCHEMA = {
         data_proposta: { type: ["string", "null"], description: "ISO YYYY-MM-DD" },
         tipo_documental: { type: ["string", "null"], description: "proposta_comercial, proposta_tecnica, contrato, anexo, memorial, planilha" },
         status_proposta: { type: ["string", "null"], description: "comercial, contratada, revisao, aditivo, rascunho" },
+        fabricante: { type: ["string", "null"], description: "Empresa que EMITIU a proposta (Conela, Thermopro, Kit Frigor, DNS, etc). NÃO é o cliente." },
+        fabricante_cnpj: { type: ["string", "null"] },
 
         // Cliente
         cliente_nome: { type: ["string", "null"] },
@@ -103,11 +108,18 @@ const TOOL_SCHEMA = {
             area_m2: { type: ["number", "null"] },
             volume_m3: { type: ["number", "null"] },
             isolamento: { type: ["string", "null"] },
-            isolamento_tipo: { type: ["string", "null"] },
+            isolamento_tipo: { type: ["string", "null"], description: "PIR, PUR, EPS, etc — parede/teto" },
             isolamento_espessura_mm: { type: ["number", "null"] },
             isolamento_densidade_kg_m3: { type: ["number", "null"] },
+            isolamento_piso: { type: ["string", "null"], description: "Ex: concreto, painel pisável, EPS" },
             painel_isolante_descricao: { type: ["string", "null"] },
-            carga_termica_kcal: { type: ["number", "null"] },
+            tensao: { type: ["string", "null"], description: "Ex: 380V/3F-60HZ" },
+            funcionamento_compressor_h_dia: { type: ["number", "null"] },
+            fator_seguranca_pct: { type: ["number", "null"] },
+            carga_termica_kcal: { type: ["number", "null"], description: "Carga térmica REQUERIDA da câmara" },
+            potencia_frigorifica_instalada_kcal: { type: ["number", "null"], description: "Capacidade total ofertada/instalada" },
+            sobra_capacidade_pct: { type: ["number", "null"], description: "(instalada/requerida - 1) * 100" },
+            numero_trocas_ar_h: { type: ["number", "null"] },
             supervisorio: { type: ["boolean", "null"] },
             monitoramento_remoto: { type: ["boolean", "null"] },
           },
@@ -119,16 +131,21 @@ const TOOL_SCHEMA = {
           items: {
             type: "object",
             properties: {
-              tipo: { type: ["string", "null"] },
+            tipo: { type: ["string", "null"], description: "Plug In, Split, Self Out, Monobloco, Rack, Central" },
               modelo: { type: ["string", "null"] },
               marca: { type: ["string", "null"] },
               quantidade: { type: ["integer", "null"] },
               potencia_hp: { type: ["number", "null"] },
-              capacidade_kcal: { type: ["number", "null"] },
-              compressor: { type: ["string", "null"] },
+              capacidade_kcal: { type: ["number", "null"], description: "Capacidade unitária em kcal/h" },
+              compressor: { type: ["string", "null"], description: "Scroll Inverter, Semi-hermético, Alternativo, Parafuso" },
               gas_refrigerante: { type: ["string", "null"] },
-              tipo_degelo: { type: ["string", "null"] },
-              tipo_condensacao: { type: ["string", "null"] },
+              tipo_degelo: { type: ["string", "null"], description: "Ventilação, Elétrico, Gás Quente, Água" },
+              tipo_condensacao: { type: ["string", "null"], description: "On Board, Remoto, Ar, Água, Evaporativa" },
+              tipo_desumidificacao: { type: ["string", "null"], description: "Gás Quente, Elétrico, Nenhum" },
+              tipo_expansao: { type: ["string", "null"], description: "Direta, Indireta, Eletrônica, Termostática" },
+              tensao: { type: ["string", "null"] },
+              vazao_ar_evp_m3h: { type: ["number", "null"] },
+              flecha_ar_m: { type: ["number", "null"] },
               valor_unitario: { type: ["number", "null"] },
             },
           },
@@ -290,6 +307,26 @@ function extractTechnicalHints(sourceText: string) {
   return hints;
 }
 
+// Known competitor catalog — order matters (specific before generic).
+// "fallback" is true when AI didn't detect anything in the text.
+const KNOWN_COMPETITORS: Array<{ name: string; patterns: RegExp[] }> = [
+  { name: "Conela", patterns: [/\bconela\b/i, /conela\.com/i] },
+  { name: "Thermopro", patterns: [/\bthermo\s*pro\b/i, /thermopro/i] },
+  { name: "Kit Frigor", patterns: [/\bkit\s*frigor\b/i] },
+  { name: "DNS", patterns: [/\bDNS\s+refrigera/i, /\bDNS\s+(?:câmara|camara|frio)/i] },
+  { name: "Refrimaq", patterns: [/\brefrimaq\b/i] },
+  { name: "Frigelar", patterns: [/\bfrigelar\b/i] },
+  { name: "Plotter", patterns: [/\bplotter\s+refrigera/i] },
+  { name: "Mecalux Frio", patterns: [/\bmecalux\b/i] },
+];
+
+function detectManufacturer(sourceText: string): string | null {
+  for (const c of KNOWN_COMPETITORS) {
+    if (c.patterns.some((p) => p.test(sourceText))) return c.name;
+  }
+  return null;
+}
+
 function mergeTechnicalHints(extracted: any, sourceText: string) {
   const normalized = normalizeExtraction(extracted) || {};
   const hints = extractTechnicalHints(sourceText);
@@ -327,8 +364,15 @@ function mergeTechnicalHints(extracted: any, sourceText: string) {
     ...((hints.evidencias || []).filter((item: any) => item?.campo && !camposExistentes.has(item.campo))),
   ];
 
+  // Manufacturer/competitor detection: prefer AI value, fall back to text scan, then null.
+  const aiFabricante = normalizeSpaces(normalized.fabricante);
+  const detected = !aiFabricante ? detectManufacturer(sourceText) : null;
+  const fabricante = aiFabricante || detected || null;
+
   return {
     ...normalized,
+    fabricante,
+    fabricante_origem: aiFabricante ? "ia" : detected ? "heuristica" : "indefinido",
     dados_tecnicos: dadosTecnicos,
     evidencias,
   };

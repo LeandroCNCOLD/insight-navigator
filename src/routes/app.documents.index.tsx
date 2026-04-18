@@ -19,6 +19,7 @@ export const Route = createFileRoute("/app/documents/")({
 
 function DocsList() {
   const [q, setQ] = useState("");
+  const [fab, setFab] = useState<string>("__all__");
   const [queue, setQueue] = useState<QueueItem[]>([]);
   useEffect(() => {
     const unsub = uploadQueue.subscribe(setQueue);
@@ -29,7 +30,7 @@ function DocsList() {
     queryKey: ["documents"],
     queryFn: async () => {
       const { data } = await supabase.from("documents")
-        .select("id,file_name,file_type,file_size,status,created_at,tem_analise_forense,competitor:competitors(nome),client:clients(nome,estado)")
+        .select("id,file_name,file_type,file_size,status,created_at,tem_analise_forense,competitor:competitors(id,nome),client:clients(nome,estado)")
         .order("created_at", { ascending: false });
       return data || [];
     },
@@ -51,7 +52,18 @@ function DocsList() {
       .map((it) => it.documentId),
   );
 
-  const filtered = (data || []).filter((d) => !q || d.file_name.toLowerCase().includes(q.toLowerCase()));
+  const fabricantes = Array.from(
+    new Set((data || []).map((d: any) => d.competitor?.nome).filter(Boolean)),
+  ).sort() as string[];
+
+  const filtered = (data || []).filter((d: any) => {
+    if (q && !d.file_name.toLowerCase().includes(q.toLowerCase())) return false;
+    if (fab !== "__all__") {
+      if (fab === "__none__") return !d.competitor?.nome;
+      if (d.competitor?.nome !== fab) return false;
+    }
+    return true;
+  });
 
   const reprocess = (id: string, name: string) => {
     uploadQueue.reprocess(id, name);
@@ -89,7 +101,27 @@ function DocsList() {
         }
       />
 
-      <Input placeholder="Buscar por nome..." value={q} onChange={(e) => setQ(e.target.value)} className="max-w-sm" />
+      <div className="flex flex-wrap items-center gap-2">
+        <Input placeholder="Buscar por nome..." value={q} onChange={(e) => setQ(e.target.value)} className="max-w-sm" />
+        <div className="flex flex-wrap gap-1.5">
+          <FabChip label="Todos" active={fab === "__all__"} onClick={() => setFab("__all__")} count={(data || []).length} />
+          {fabricantes.map((name) => (
+            <FabChip
+              key={name}
+              label={name}
+              active={fab === name}
+              onClick={() => setFab(name)}
+              count={(data || []).filter((d: any) => d.competitor?.nome === name).length}
+            />
+          ))}
+          <FabChip
+            label="Sem fabricante"
+            active={fab === "__none__"}
+            onClick={() => setFab("__none__")}
+            count={(data || []).filter((d: any) => !d.competitor?.nome).length}
+          />
+        </div>
+      </div>
 
       {filtered.length === 0 ? (
         <EmptyState icon={FileText} title="Nenhum documento" description="Faça upload do primeiro arquivo para começar." action={
@@ -101,6 +133,7 @@ function DocsList() {
             <thead className="bg-muted/30 text-xs uppercase tracking-wider text-muted-foreground">
               <tr>
                 <th className="text-left px-4 py-2.5 font-medium">Arquivo</th>
+                <th className="text-left px-4 py-2.5 font-medium">Fabricante</th>
                 <th className="text-left px-4 py-2.5 font-medium">Cliente</th>
                 <th className="text-left px-4 py-2.5 font-medium">Tipo</th>
                 <th className="text-left px-4 py-2.5 font-medium">Tamanho</th>
@@ -120,6 +153,19 @@ function DocsList() {
                         <FileText className="size-3.5 text-muted-foreground" />
                         <span className="truncate max-w-xs">{d.file_name}</span>
                       </Link>
+                    </td>
+                    <td className="px-4 py-2.5">
+                      {d.competitor?.nome ? (
+                        <Link
+                          to="/app/competitors/$nome"
+                          params={{ nome: encodeURIComponent(d.competitor.nome) }}
+                          className="text-xs text-primary hover:underline"
+                        >
+                          {d.competitor.nome}
+                        </Link>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-2.5 text-muted-foreground">{d.client?.nome || "—"}</td>
                     <td className="px-4 py-2.5 uppercase text-xs">{d.file_type}</td>
@@ -157,5 +203,31 @@ function DocsList() {
         </Card>
       )}
     </div>
+  );
+}
+
+function FabChip({
+  label,
+  active,
+  onClick,
+  count,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+  count: number;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`px-2.5 py-1 rounded-full text-[11px] border transition-colors ${
+        active
+          ? "bg-primary text-primary-foreground border-primary"
+          : "bg-muted/30 text-muted-foreground border-border hover:bg-muted/50"
+      }`}
+    >
+      {label} <span className="opacity-70">· {count}</span>
+    </button>
   );
 }
