@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.forensic-analyze]
 verify_jwt = false
+
+[functions.market-intelligence]
+verify_jwt = false
