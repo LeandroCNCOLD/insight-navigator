@@ -133,6 +133,7 @@ function DocsList() {
             <thead className="bg-muted/30 text-xs uppercase tracking-wider text-muted-foreground">
               <tr>
                 <th className="text-left px-4 py-2.5 font-medium">Arquivo</th>
+                <th className="text-left px-4 py-2.5 font-medium">Fabricante</th>
                 <th className="text-left px-4 py-2.5 font-medium">Cliente</th>
                 <th className="text-left px-4 py-2.5 font-medium">Tipo</th>
                 <th className="text-left px-4 py-2.5 font-medium">Tamanho</th>
@@ -152,6 +153,19 @@ function DocsList() {
                         <FileText className="size-3.5 text-muted-foreground" />
                         <span className="truncate max-w-xs">{d.file_name}</span>
                       </Link>
+                    </td>
+                    <td className="px-4 py-2.5">
+                      {d.competitor?.nome ? (
+                        <Link
+                          to="/app/competitors/$nome"
+                          params={{ nome: encodeURIComponent(d.competitor.nome) }}
+                          className="text-xs text-primary hover:underline"
+                        >
+                          {d.competitor.nome}
+                        </Link>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-2.5 text-muted-foreground">{d.client?.nome || "—"}</td>
                     <td className="px-4 py-2.5 uppercase text-xs">{d.file_type}</td>
