@@ -11,8 +11,10 @@ async function getPdfjs() {
   if (!pdfjsLibPromise) {
     pdfjsLibPromise = (async () => {
       const lib = await import("pdfjs-dist");
-      const workerUrl = (await import("pdfjs-dist/build/pdf.worker.min.mjs?url")).default;
-      lib.GlobalWorkerOptions.workerSrc = workerUrl;
+      // Use CDN worker matching the installed pdfjs-dist version to avoid
+      // bundler ?url imports that break TanStack's route crawler.
+      const version = (lib as any).version || "4.7.76";
+      lib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${version}/build/pdf.worker.min.mjs`;
       return lib;
     })();
   }
