@@ -337,6 +337,7 @@ class UploadQueue {
           owner_id: u.user.id,
           document_id: doc.id,
           client_id: clientId,
+          competitor_id: competitorId,
           numero: ex.numero,
           data_proposta: ex.data_proposta,
           valor_total: ex.valor_total,
@@ -419,6 +420,7 @@ class UploadQueue {
         .update({
           status: "extracted",
           client_id: clientId,
+          competitor_id: competitorId,
           tipo_documental: ex.tipo_documental,
           resumo_executivo: ex.resumo_executivo,
         })
