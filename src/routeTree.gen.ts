@@ -16,6 +16,7 @@ import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AppUploadRouteImport } from './routes/app.upload'
 import { Route as AppSettingsRouteImport } from './routes/app.settings'
 import { Route as AppReviewRouteImport } from './routes/app.review'
+import { Route as AppRecommendRouteImport } from './routes/app.recommend'
 import { Route as AppQueueRouteImport } from './routes/app.queue'
 import { Route as AppProposalsRouteImport } from './routes/app.proposals'
 import { Route as AppMarketRouteImport } from './routes/app.market'
@@ -70,6 +71,11 @@ const AppSettingsRoute = AppSettingsRouteImport.update({
 const AppReviewRoute = AppReviewRouteImport.update({
   id: '/review',
   path: '/review',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppRecommendRoute = AppRecommendRouteImport.update({
+  id: '/recommend',
+  path: '/recommend',
   getParentRoute: () => AppRoute,
 } as any)
 const AppQueueRoute = AppQueueRouteImport.update({
@@ -190,6 +196,7 @@ export interface FileRoutesByFullPath {
   '/app/market': typeof AppMarketRoute
   '/app/proposals': typeof AppProposalsRoute
   '/app/queue': typeof AppQueueRoute
+  '/app/recommend': typeof AppRecommendRoute
   '/app/review': typeof AppReviewRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/upload': typeof AppUploadRoute
@@ -218,6 +225,7 @@ export interface FileRoutesByTo {
   '/app/market': typeof AppMarketRoute
   '/app/proposals': typeof AppProposalsRoute
   '/app/queue': typeof AppQueueRoute
+  '/app/recommend': typeof AppRecommendRoute
   '/app/review': typeof AppReviewRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/upload': typeof AppUploadRoute
@@ -248,6 +256,7 @@ export interface FileRoutesById {
   '/app/market': typeof AppMarketRoute
   '/app/proposals': typeof AppProposalsRoute
   '/app/queue': typeof AppQueueRoute
+  '/app/recommend': typeof AppRecommendRoute
   '/app/review': typeof AppReviewRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/upload': typeof AppUploadRoute
@@ -279,6 +288,7 @@ export interface FileRouteTypes {
     | '/app/market'
     | '/app/proposals'
     | '/app/queue'
+    | '/app/recommend'
     | '/app/review'
     | '/app/settings'
     | '/app/upload'
@@ -307,6 +317,7 @@ export interface FileRouteTypes {
     | '/app/market'
     | '/app/proposals'
     | '/app/queue'
+    | '/app/recommend'
     | '/app/review'
     | '/app/settings'
     | '/app/upload'
@@ -336,6 +347,7 @@ export interface FileRouteTypes {
     | '/app/market'
     | '/app/proposals'
     | '/app/queue'
+    | '/app/recommend'
     | '/app/review'
     | '/app/settings'
     | '/app/upload'
@@ -405,6 +417,13 @@ declare module '@tanstack/react-router' {
       path: '/review'
       fullPath: '/app/review'
       preLoaderRoute: typeof AppReviewRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/recommend': {
+      id: '/app/recommend'
+      path: '/recommend'
+      fullPath: '/app/recommend'
+      preLoaderRoute: typeof AppRecommendRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/queue': {
@@ -575,6 +594,7 @@ interface AppRouteChildren {
   AppMarketRoute: typeof AppMarketRoute
   AppProposalsRoute: typeof AppProposalsRoute
   AppQueueRoute: typeof AppQueueRoute
+  AppRecommendRoute: typeof AppRecommendRoute
   AppReviewRoute: typeof AppReviewRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppUploadRoute: typeof AppUploadRoute
@@ -601,6 +621,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppMarketRoute: AppMarketRoute,
   AppProposalsRoute: AppProposalsRoute,
   AppQueueRoute: AppQueueRoute,
+  AppRecommendRoute: AppRecommendRoute,
   AppReviewRoute: AppReviewRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppUploadRoute: AppUploadRoute,
