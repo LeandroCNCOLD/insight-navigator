@@ -205,3 +205,29 @@ function DocsList() {
     </div>
   );
 }
+
+function FabChip({
+  label,
+  active,
+  onClick,
+  count,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+  count: number;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`px-2.5 py-1 rounded-full text-[11px] border transition-colors ${
+        active
+          ? "bg-primary text-primary-foreground border-primary"
+          : "bg-muted/30 text-muted-foreground border-border hover:bg-muted/50"
+      }`}
+    >
+      {label} <span className="opacity-70">· {count}</span>
+    </button>
+  );
+}
