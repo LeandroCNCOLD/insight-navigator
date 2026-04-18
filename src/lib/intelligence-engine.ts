@@ -1,89 +1,90 @@
 import { supabase } from "@/integrations/supabase/client";
-import { buildIntelligenceDataset, serializeIntelligenceContext } from "./intelligence-data";
 
-export const INTELLIGENCE_SYSTEM_PROMPT = `Você é um analista técnico especialista em refrigeração industrial e benchmarking de propostas.
-
-Sua função é analisar uma base de propostas estruturadas contendo:
-- cliente
-- concorrente
-- equipamentos
-- potência (HP)
-- capacidade (kcal)
-- gás refrigerante
-- compressor
-- valores comerciais
-
-Sua tarefa:
-1. Interpretar a pergunta do usuário
-2. Analisar o dataset fornecido
-3. Identificar padrões técnicos, comerciais e operacionais
-4. Gerar insights objetivos
-5. Apontar possíveis riscos ou inconsistências
-
-Regras:
-- Não inventar dados
-- Basear-se somente no dataset
-- Ser técnico e direto
-- Quando possível, comparar
-- Quando possível, quantificar
-
-Saída:
-- resposta direta
-- insights
-- padrões identificados
-- riscos (se houver)`;
-
-export type IntelligenceQueryResult = {
-  answer: string;
-  insights?: string[];
-  patterns?: string[];
-  risks?: string[];
-  raw?: unknown;
+export type IntelligenceMessage = {
+  role: "user" | "assistant";
+  content: string;
 };
 
-export async function runIntelligenceQuery(question: string): Promise<IntelligenceQueryResult> {
-  const normalizedQuestion = question.trim();
+export async function streamIntelligenceAnswer(
+  messages: IntelligenceMessage[],
+  onDelta: (text: string) => void,
+) {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
 
-  if (!normalizedQuestion) {
-    throw new Error("Informe uma pergunta para consultar a base.");
-  }
+  const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-analytics`;
 
-  const dataset = await buildIntelligenceDataset();
-  const context = serializeIntelligenceContext(dataset);
-
-  const { data, error } = await supabase.functions.invoke("chat-analytics", {
-    body: {
-      mode: "intelligence-brain",
-      question: normalizedQuestion,
-      context,
-      systemPrompt: INTELLIGENCE_SYSTEM_PROMPT,
-      datasetSize: dataset.length,
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session?.access_token}`,
     },
+    body: JSON.stringify({ messages }),
   });
 
-  if (error) {
-    throw new Error(error.message || "Falha ao consultar o backend de IA.");
+  if (!resp.ok || !resp.body) {
+    if (resp.status === 429) {
+      throw new Error("Limite de requisições. Aguarde um instante.");
+    }
+    if (resp.status === 402) {
+      throw new Error("Créditos de IA esgotados.");
+    }
+    const text = await resp.text().catch(() => "");
+    throw new Error(text || "Falha ao consultar inteligência analítica.");
   }
 
-  if (typeof data?.answer === "string") {
-    return {
-      answer: data.answer,
-      insights: Array.isArray(data.insights) ? data.insights : undefined,
-      patterns: Array.isArray(data.patterns) ? data.patterns : undefined,
-      risks: Array.isArray(data.risks) ? data.risks : undefined,
-      raw: data,
-    };
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+
+  let buffer = "";
+  let accumulated = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+
+    let newlineIndex: number;
+    while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
+      let line = buffer.slice(0, newlineIndex);
+      buffer = buffer.slice(newlineIndex + 1);
+
+      if (line.endsWith("\r")) line = line.slice(0, -1);
+      if (!line.startsWith("data: ")) continue;
+
+      const payload = line.slice(6).trim();
+      if (payload === "[DONE]") {
+        reader.cancel();
+        return accumulated;
+      }
+
+      try {
+        const parsed = JSON.parse(payload);
+        const delta = parsed.choices?.[0]?.delta?.content;
+        if (delta) {
+          accumulated += delta;
+          onDelta(accumulated);
+        }
+      } catch {
+        buffer = line + "\n" + buffer;
+        break;
+      }
+    }
   }
 
-  if (typeof data?.content === "string") {
-    return {
-      answer: data.content,
-      raw: data,
-    };
-  }
-
-  return {
-    answer: typeof data === "string" ? data : JSON.stringify(data, null, 2),
-    raw: data,
-  };
+  return accumulated;
 }
+
+export const INTELLIGENCE_SUGGESTIONS = [
+  "Qual concorrente tem maior valor total mapeado na base?",
+  "Quais estados concentram mais propostas?",
+  "Quais modelos de equipamento aparecem com maior frequência?",
+  "Quais combinações de gás e compressor são mais recorrentes?",
+  "Qual o ticket médio das propostas acima de 500 mil?",
+  "Qual concorrente parece usar a política comercial mais agressiva?",
+  "Quais propostas têm maior HP total instalado?",
+  "Existe padrão técnico recorrente por estado ou concorrente?",
+];
