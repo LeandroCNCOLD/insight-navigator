@@ -14,10 +14,19 @@ REGRAS CRÍTICAS:
 - Quando não encontrar um dado, retorne null. Quando houver incerteza, sinalize baixa confiança (score < 0.5).
 - Para CADA campo extraído, popule o array "evidencias" com: campo, valor_extraido, pagina (se identificável no texto), trecho (citação literal ~120 chars) e score_confianca (0-1).
 - Normalize valores monetários para BRL (números, sem símbolo).
-- Normalize unidades técnicas (HP, kcal/h, °C, %).
+- Normalize unidades técnicas (HP, kcal/h, °C, %, mm, m).
 - Para equipamentos, liste cada item separado.
 - Gere resumos analíticos de alto nível (executivo, técnico, comercial).
 - Classifique porte do projeto (pequeno < R$ 200k, médio R$ 200k-1M, grande > R$ 1M) e indício de fechamento (baixo/médio/alto) baseado em sinais como assinatura, status, condições.
+
+EXTRAÇÃO TÉCNICA OBRIGATÓRIA:
+- Procure explicitamente medidas da câmara: comprimento, largura, altura e pé-direito quando houver.
+- Procure painel/isolamento: tipo (PIR, PUR, EPS ou similar), espessura em mm, densidade e descrição do painel quando houver.
+- Procure capacidade térmica / carga térmica em kcal/h e qualquer capacidade por equipamento.
+- Procure temperatura-alvo, umidade, aplicação, produto armazenado, volume, área e qualquer especificação dimensional.
+- Se houver texto como "60 x 25 x 7,5 m", converta para comprimento/largura/altura e preserve também a string original em "dimensoes".
+- Se houver texto como "PIR 70", "PIR-70", "EPS 100" ou similar, normalize em campos estruturados e também em "isolamento".
+- Se houver múltiplas informações técnicas, priorize trazer o máximo de campos preenchidos com evidência, mesmo que dados comerciais estejam ausentes.
 
 Retorne SOMENTE chamando a função extract_proposal.`;
 
@@ -87,7 +96,17 @@ const TOOL_SCHEMA = {
             temperatura_alvo_c: { type: ["number", "null"] },
             umidade_alvo_pct: { type: ["number", "null"] },
             dimensoes: { type: ["string", "null"] },
+            comprimento_m: { type: ["number", "null"] },
+            largura_m: { type: ["number", "null"] },
+            altura_m: { type: ["number", "null"] },
+            pe_direito_m: { type: ["number", "null"] },
+            area_m2: { type: ["number", "null"] },
+            volume_m3: { type: ["number", "null"] },
             isolamento: { type: ["string", "null"] },
+            isolamento_tipo: { type: ["string", "null"] },
+            isolamento_espessura_mm: { type: ["number", "null"] },
+            isolamento_densidade_kg_m3: { type: ["number", "null"] },
+            painel_isolante_descricao: { type: ["string", "null"] },
             carga_termica_kcal: { type: ["number", "null"] },
             supervisorio: { type: ["boolean", "null"] },
             monitoramento_remoto: { type: ["boolean", "null"] },
@@ -159,6 +178,162 @@ function hasMeaningfulText(value: string | null | undefined) {
   return normalizeSpaces(value).length >= MIN_TEXT_LENGTH;
 }
 
+function parseLocalizedNumber(value: string | null | undefined) {
+  const raw = normalizeSpaces(value).replace(/[^\d,.-]/g, "");
+  if (!raw) return null;
+
+  let normalized = raw;
+  if (normalized.includes(",") && normalized.includes(".")) {
+    if (normalized.lastIndexOf(",") > normalized.lastIndexOf(".")) {
+      normalized = normalized.replace(/\./g, "").replace(",", ".");
+    } else {
+      normalized = normalized.replace(/,/g, "");
+    }
+  } else if (normalized.includes(",")) {
+    const decimalPart = normalized.split(",")[1] || "";
+    normalized = decimalPart.length === 3
+      ? normalized.replace(/,/g, "")
+      : normalized.replace(/\./g, "").replace(",", ".");
+  } else if (normalized.includes(".")) {
+    const decimalPart = normalized.split(".").pop() || "";
+    if (decimalPart.length === 3) {
+      normalized = normalized.replace(/\./g, "");
+    }
+  }
+
+  const result = Number(normalized);
+  return Number.isFinite(result) ? result : null;
+}
+
+function extractSnippet(sourceText: string, start: number, end: number) {
+  const from = Math.max(0, start - 50);
+  const to = Math.min(sourceText.length, end + 70);
+  return normalizeSpaces(sourceText.slice(from, to)).slice(0, 220) || null;
+}
+
+function extractTechnicalHints(sourceText: string) {
+  const hints: any = { dados_tecnicos: {}, evidencias: [] };
+
+  const dimensionPatterns = [
+    /(\d{1,3}(?:[.,]\d{1,2})?)\s*(?:m|metros?)?\s*[x×]\s*(\d{1,3}(?:[.,]\d{1,2})?)\s*(?:m|metros?)?\s*[x×]\s*(\d{1,2}(?:[.,]\d{1,2})?)\s*(?:m|metros?)\b/i,
+    /comprimento\s*[:=-]?\s*(\d{1,3}(?:[.,]\d{1,2})?).{0,30}?largura\s*[:=-]?\s*(\d{1,3}(?:[.,]\d{1,2})?).{0,30}?altura\s*[:=-]?\s*(\d{1,2}(?:[.,]\d{1,2})?)/i,
+  ];
+
+  for (const pattern of dimensionPatterns) {
+    const match = pattern.exec(sourceText);
+    if (!match) continue;
+    const comprimento = parseLocalizedNumber(match[1]);
+    const largura = parseLocalizedNumber(match[2]);
+    const altura = parseLocalizedNumber(match[3]);
+    if (comprimento && largura && altura && comprimento <= 500 && largura <= 500 && altura <= 30) {
+      hints.dados_tecnicos.comprimento_m = comprimento;
+      hints.dados_tecnicos.largura_m = largura;
+      hints.dados_tecnicos.altura_m = altura;
+      hints.dados_tecnicos.area_m2 = Number((comprimento * largura).toFixed(2));
+      hints.dados_tecnicos.volume_m3 = Number((comprimento * largura * altura).toFixed(2));
+      hints.dados_tecnicos.dimensoes = `${comprimento} x ${largura} x ${altura} m`;
+      hints.evidencias.push({
+        campo: "dados_tecnicos.dimensoes",
+        valor_extraido: hints.dados_tecnicos.dimensoes,
+        pagina: null,
+        trecho: extractSnippet(sourceText, match.index, match.index + match[0].length),
+        score_confianca: 0.96,
+      });
+      break;
+    }
+  }
+
+  const insulationMatch = /\b(?:painel(?:\s+isolante)?|isolamento|painel\s+frigor[ií]fico)?[^\n]{0,60}?\b(PIR|PUR|EPS)\s*(?:-|\/|\s)?\s*(\d{2,3})(?:\s*mm)?\b/i.exec(sourceText);
+  if (insulationMatch) {
+    const tipo = insulationMatch[1].toUpperCase();
+    const espessura = parseLocalizedNumber(insulationMatch[2]);
+    hints.dados_tecnicos.isolamento_tipo = tipo;
+    hints.dados_tecnicos.isolamento_espessura_mm = espessura;
+    hints.dados_tecnicos.isolamento = espessura ? `${tipo}-${espessura}mm` : tipo;
+    hints.dados_tecnicos.painel_isolante_descricao = normalizeSpaces(insulationMatch[0]);
+    hints.evidencias.push({
+      campo: "dados_tecnicos.isolamento",
+      valor_extraido: hints.dados_tecnicos.isolamento,
+      pagina: null,
+      trecho: extractSnippet(sourceText, insulationMatch.index, insulationMatch.index + insulationMatch[0].length),
+      score_confianca: 0.95,
+    });
+  }
+
+  const kcalMatch = /(\d[\d.,]{2,})\s*(?:kcal\/h|kcal\/?hora|kcal\b)/i.exec(sourceText);
+  if (kcalMatch) {
+    const kcal = parseLocalizedNumber(kcalMatch[1]);
+    if (kcal && kcal >= 1000) {
+      hints.dados_tecnicos.carga_termica_kcal = kcal;
+      hints.evidencias.push({
+        campo: "dados_tecnicos.carga_termica_kcal",
+        valor_extraido: String(kcal),
+        pagina: null,
+        trecho: extractSnippet(sourceText, kcalMatch.index, kcalMatch.index + kcalMatch[0].length),
+        score_confianca: 0.94,
+      });
+    }
+  }
+
+  const tempMatch = /(-?\d{1,2}(?:[.,]\d{1,2})?)\s*°\s*C/i.exec(sourceText);
+  if (tempMatch) {
+    const temp = parseLocalizedNumber(tempMatch[1]);
+    if (temp != null) hints.dados_tecnicos.temperatura_alvo_c = temp;
+  }
+
+  const humidityMatch = /(\d{1,3}(?:[.,]\d{1,2})?)\s*%\s*(?:UR|umidade)?/i.exec(sourceText);
+  if (humidityMatch) {
+    const humidity = parseLocalizedNumber(humidityMatch[1]);
+    if (humidity != null && humidity <= 100) hints.dados_tecnicos.umidade_alvo_pct = humidity;
+  }
+
+  return hints;
+}
+
+function mergeTechnicalHints(extracted: any, sourceText: string) {
+  const normalized = normalizeExtraction(extracted) || {};
+  const hints = extractTechnicalHints(sourceText);
+  const dadosTecnicos = { ...(normalized.dados_tecnicos || {}) };
+
+  const fill = (key: string) => {
+    if (dadosTecnicos[key] == null || dadosTecnicos[key] === "") {
+      const value = hints.dados_tecnicos?.[key];
+      if (value != null && value !== "") dadosTecnicos[key] = value;
+    }
+  };
+
+  [
+    "dimensoes",
+    "comprimento_m",
+    "largura_m",
+    "altura_m",
+    "pe_direito_m",
+    "area_m2",
+    "volume_m3",
+    "isolamento",
+    "isolamento_tipo",
+    "isolamento_espessura_mm",
+    "isolamento_densidade_kg_m3",
+    "painel_isolante_descricao",
+    "carga_termica_kcal",
+    "temperatura_alvo_c",
+    "umidade_alvo_pct",
+  ].forEach(fill);
+
+  const evidenciasExistentes = Array.isArray(normalized.evidencias) ? normalized.evidencias : [];
+  const camposExistentes = new Set(evidenciasExistentes.map((item: any) => item?.campo).filter(Boolean));
+  const evidencias = [
+    ...evidenciasExistentes,
+    ...((hints.evidencias || []).filter((item: any) => item?.campo && !camposExistentes.has(item.campo))),
+  ];
+
+  return {
+    ...normalized,
+    dados_tecnicos: dadosTecnicos,
+    evidencias,
+  };
+}
+
 function normalizeExtraction(extracted: any) {
   if (!extracted || typeof extracted !== "object") return extracted;
   const evidencias = Array.isArray(extracted.evidencias) ? extracted.evidencias.filter((ev: any) => ev?.campo) : [];
@@ -185,6 +360,11 @@ function validateExtraction(extracted: any, sourceText: string) {
     normalizeSpaces(normalized?.dados_tecnicos?.produto_armazenado) ||
     normalizeSpaces(normalized?.dados_tecnicos?.dimensoes) ||
     normalizeSpaces(normalized?.dados_tecnicos?.isolamento) ||
+    normalized?.dados_tecnicos?.comprimento_m != null ||
+    normalized?.dados_tecnicos?.largura_m != null ||
+    normalized?.dados_tecnicos?.altura_m != null ||
+    normalized?.dados_tecnicos?.area_m2 != null ||
+    normalized?.dados_tecnicos?.volume_m3 != null ||
     normalized?.dados_tecnicos?.temperatura_alvo_c != null ||
     normalized?.dados_tecnicos?.carga_termica_kcal != null ||
     (Array.isArray(normalized?.equipamentos) && normalized.equipamentos.length > 0)
@@ -292,7 +472,7 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: `IA indisponível após retries: ${lastError || "sem detalhes"}` }), { status: lastStatus === 503 ? 503 : 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const extracted = JSON.parse(toolCall.function.arguments);
+    const extracted = mergeTechnicalHints(JSON.parse(toolCall.function.arguments), content);
     const validation = validateExtraction(extracted, content);
     if (!validation.valid) {
       return new Response(JSON.stringify({ error: validation.reason }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
