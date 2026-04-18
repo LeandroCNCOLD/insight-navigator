@@ -91,8 +91,8 @@ function ForensicNavigatorPage() {
     <div className="p-6 space-y-6">
       <PageHeader
         title="Navegador Forense"
-        subtitle="Leitura profunda, rastreável e auditável do documento"
-        actions={
+        description="Leitura profunda, rastreável e auditável do documento"
+        action={
           <div className="flex flex-wrap gap-2">
             <Link to="/app/documents/$id" params={{ id }}>
               <Button variant="outline">

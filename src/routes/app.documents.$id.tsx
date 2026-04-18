@@ -68,8 +68,8 @@ function DocumentDetailPage() {
     <div className="p-6 space-y-6">
       <PageHeader
         title={d.file_name || "Documento"}
-        subtitle="Visão consolidada do documento, proposta extraída e texto bruto"
-        actions={
+        description="Visão consolidada do documento, proposta extraída e texto bruto"
+        action={
           <div className="flex flex-wrap gap-2">
             <Link to="/app/documents">
               <Button variant="outline">
