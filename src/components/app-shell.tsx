@@ -2,7 +2,7 @@ import { Link, useLocation } from "@tanstack/react-router";
 import {
   LayoutDashboard, Upload, FileText, Users, Building2, Wrench, BarChart3,
   Map, Brain, MessagesSquare, GitCompare, ClipboardCheck, BookOpen, ListChecks,
-  ShieldCheck, Settings, LogOut, Search,
+  ShieldCheck, Settings, LogOut, Search, Lightbulb, Target,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,10 @@ const nav: { section: string; items: NavItem[] }[] = [
     { to: "/app/dashboards/contractual", label: "Contratual", icon: ShieldCheck },
     { to: "/app/dashboards/geographic", label: "Geográfico", icon: Map },
     { to: "/app/dashboards/strategic", label: "Estratégico", icon: Brain },
+  ]},
+  { section: "Inteligência de Mercado", items: [
+    { to: "/app/market", label: "Mercado & Produto", icon: Lightbulb },
+    { to: "/app/recommend", label: "Recomendação", icon: Target },
   ]},
   { section: "IA & Operação", items: [
     { to: "/app/chat", label: "Chat analítico", icon: MessagesSquare },
