@@ -236,36 +236,60 @@ Deno.serve(async (req) => {
     const MAX = 60000;
     const content = text.length > MAX ? text.slice(0, MAX) + "\n\n[...truncado...]" : text;
 
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-pro",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: `Documento: ${fileName} (${fileType})\n\n--- INÍCIO ---\n${content}\n--- FIM ---` },
-        ],
-        tools: [TOOL_SCHEMA],
-        tool_choice: { type: "function", function: { name: "extract_proposal" } },
-      }),
-    });
+    const MODELS = ["google/gemini-2.5-flash", "google/gemini-2.5-pro", "google/gemini-2.5-flash-lite"];
+    let toolCall: any = null;
+    let lastError: string | null = null;
+    let lastStatus = 0;
 
-    if (!res.ok) {
-      if (res.status === 429) return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns instantes." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      if (res.status === 402) return new Response(JSON.stringify({ error: "Créditos de IA esgotados. Adicione créditos no workspace." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      const errText = await res.text();
-      console.error("AI gateway error", res.status, errText);
-      return new Response(JSON.stringify({ error: "Falha na IA", details: errText }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    for (const model of MODELS) {
+      const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            { role: "user", content: `Documento: ${fileName} (${fileType})\n\n--- INÍCIO ---\n${content}\n--- FIM ---` },
+          ],
+          tools: [TOOL_SCHEMA],
+          tool_choice: { type: "function", function: { name: "extract_proposal" } },
+        }),
+      });
+
+      if (!res.ok) {
+        lastStatus = res.status;
+        if (res.status === 429) return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns instantes." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        if (res.status === 402) return new Response(JSON.stringify({ error: "Créditos de IA esgotados. Adicione créditos no workspace." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        lastError = await res.text();
+        console.error(`AI gateway error model=${model}`, res.status, lastError);
+        continue;
+      }
+
+      const data = await res.json();
+      const choice = data.choices?.[0];
+      const innerError = choice?.error;
+      const finishReason = choice?.finish_reason;
+
+      if (innerError) {
+        console.error(`AI inner error model=${model}`, JSON.stringify(innerError));
+        lastError = innerError.message || "provider error";
+        continue;
+      }
+
+      if (finishReason === "length" || finishReason === "max_tokens") {
+        lastError = "resposta truncada";
+        continue;
+      }
+
+      toolCall = choice?.message?.tool_calls?.[0];
+      if (toolCall) break;
+
+      lastError = "sem tool_call";
+      console.error(`No tool call model=${model}`, JSON.stringify(data).slice(0, 500));
     }
 
-    const data = await res.json();
-    const finishReason = data.choices?.[0]?.finish_reason;
-    if (finishReason === "length" || finishReason === "max_tokens") {
-      return new Response(JSON.stringify({ error: "Resposta da IA foi truncada; tente reprocessar com análise profunda" }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
     if (!toolCall) {
-      return new Response(JSON.stringify({ error: "IA não retornou dados estruturados", raw: data }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: `IA indisponível após retries: ${lastError || "sem detalhes"}` }), { status: lastStatus === 503 ? 503 : 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const extracted = JSON.parse(toolCall.function.arguments);
