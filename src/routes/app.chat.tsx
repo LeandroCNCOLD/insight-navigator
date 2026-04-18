@@ -76,7 +76,7 @@ function IntelligenceBrainPage() {
     <div className="p-6 space-y-6">
       <PageHeader
         title="Intelligence Brain"
-        subtitle="Pergunte à IA sobre propostas, equipamentos, concorrentes, clientes, padrões técnicos e benchmark."
+        description="Pergunte à IA sobre propostas, equipamentos, concorrentes, clientes, padrões técnicos e benchmark."
       />
 
       <div className="grid gap-4 md:grid-cols-4">
