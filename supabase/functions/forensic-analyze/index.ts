@@ -346,7 +346,7 @@ Deno.serve(async (req) => {
     const MAX = 120000;
     const content = rawText.length > MAX ? rawText.slice(0, MAX) + "\n\n[...truncado...]" : rawText;
 
-    const model = "google/gemini-3.1-pro-preview";
+    const model = "google/gemini-2.5-pro";
     const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
@@ -374,10 +374,40 @@ Deno.serve(async (req) => {
     if (finishReason === "length" || finishReason === "max_tokens") {
       return new Response(JSON.stringify({ error: "Resposta da IA forense foi truncada; tente novamente." }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-    if (!toolCall) return new Response(JSON.stringify({ error: "IA não retornou dados estruturados" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-    const ex = JSON.parse(toolCall.function.arguments);
+    // Resilient extraction: prefer tool_calls, fall back to JSON in content
+    const message = data.choices?.[0]?.message;
+    const toolCall = message?.tool_calls?.[0];
+    let ex: any = null;
+    if (toolCall?.function?.arguments) {
+      try {
+        ex = JSON.parse(toolCall.function.arguments);
+      } catch (e) {
+        console.error("Falha ao parsear tool_call.arguments", e, toolCall.function.arguments?.slice(0, 500));
+      }
+    }
+    if (!ex && typeof message?.content === "string" && message.content.trim()) {
+      // Try to extract JSON from raw content (some models return JSON instead of tool calls)
+      let raw = message.content.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+      const start = raw.search(/[\{\[]/);
+      const end = raw.lastIndexOf(start !== -1 && raw[start] === "[" ? "]" : "}");
+      if (start !== -1 && end !== -1) {
+        raw = raw.substring(start, end + 1);
+        try {
+          ex = JSON.parse(raw);
+        } catch {
+          try {
+            ex = JSON.parse(raw.replace(/,\s*}/g, "}").replace(/,\s*]/g, "]").replace(/[\x00-\x1F\x7F]/g, ""));
+          } catch (e) {
+            console.error("Falha ao parsear JSON do content", e, raw.slice(0, 500));
+          }
+        }
+      }
+    }
+    if (!ex) {
+      console.error("IA não retornou dados estruturados. finish_reason:", finishReason, "message:", JSON.stringify(message)?.slice(0, 1000));
+      return new Response(JSON.stringify({ error: "IA não retornou dados estruturados", finish_reason: finishReason }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
     const validation = validateForensicExtraction(ex, content);
     if (!validation.valid) {
       return new Response(JSON.stringify({ error: validation.reason }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
