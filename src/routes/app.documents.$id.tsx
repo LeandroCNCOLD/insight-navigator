@@ -132,6 +132,8 @@ function DocumentDetailPage() {
 
           {p ? (
             <>
+              <ChamberHighlight dt={p.dados_tecnicos || {}} />
+
               <Card className="p-5 space-y-4">
                 <div className="text-lg font-semibold">Resumo comercial da proposta</div>
                 <div className="grid gap-4 md:grid-cols-2">
@@ -147,7 +149,7 @@ function DocumentDetailPage() {
               </Card>
 
               <Card className="p-5 space-y-4">
-                <div className="text-lg font-semibold">Dados técnicos</div>
+                <div className="text-lg font-semibold">Dados técnicos (todos os campos)</div>
                 {p.dados_tecnicos && Object.keys(p.dados_tecnicos).length ? (
                   <div className="grid gap-4 md:grid-cols-2">
                     {Object.entries(p.dados_tecnicos || {}).map(([key, value]) => (
