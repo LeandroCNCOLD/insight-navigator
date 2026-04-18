@@ -1,130 +1,224 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Brain,
+  Loader2,
+  Send,
+  Sparkles,
+  User as UserIcon,
+  BarChart3,
+  Wrench,
+  MapPinned,
+} from "lucide-react";
+import { toast } from "sonner";
+
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/dashboard-bits";
-import { Send, Loader2, Brain, User as UserIcon } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
+import {
+  INTELLIGENCE_SUGGESTIONS,
+  streamIntelligenceAnswer,
+  type IntelligenceMessage,
+} from "@/lib/intelligence-engine";
 
 export const Route = createFileRoute("/app/chat")({
-  component: Chat,
-  head: () => ({ meta: [{ title: "Chat analítico — DocIntel" }] }),
+  component: IntelligenceBrainPage,
+  head: () => ({
+    meta: [{ title: "Intelligence Brain — DocIntel" }],
+  }),
 });
 
-type Msg = { role: "user" | "assistant"; content: string };
-
-const SUGESTOES = [
-  "Qual concorrente vendeu mais em 2024?",
-  "Em quais estados tem mais propostas mapeadas?",
-  "Qual o ticket médio acima de 500 mil?",
-  "Quais modelos aparecem em mais propostas?",
-];
-
-function Chat() {
-  const [messages, setMessages] = useState<Msg[]>([]);
+function IntelligenceBrainPage() {
+  const [messages, setMessages] = useState<IntelligenceMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const endRef = useRef<HTMLDivElement>(null);
+  const endRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
-  const send = async (text: string) => {
-    if (!text.trim() || loading) return;
-    const userMsg: Msg = { role: "user", content: text };
-    setMessages((p) => [...p, userMsg]);
-    setInput(""); setLoading(true);
+  const canSend = useMemo(() => input.trim().length > 0 && !loading, [input, loading]);
+
+  async function send(text: string) {
+    const content = text.trim();
+    if (!content || loading) return;
+
+    const userMessage: IntelligenceMessage = {
+      role: "user",
+      content,
+    };
+
+    const nextMessages = [...messages, userMessage];
+    setMessages((prev) => [...prev, userMessage, { role: "assistant", content: "" }]);
+    setInput("");
+    setLoading(true);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-analytics`;
-      const resp = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
-        body: JSON.stringify({ messages: [...messages, userMsg] }),
+      await streamIntelligenceAnswer(nextMessages, (accumulated) => {
+        setMessages((prev) =>
+          prev.map((msg, index) =>
+            index === prev.length - 1 ? { ...msg, content: accumulated } : msg,
+          ),
+        );
       });
-      if (!resp.ok || !resp.body) {
-        if (resp.status === 429) throw new Error("Limite de requisições. Aguarde um instante.");
-        if (resp.status === 402) throw new Error("Créditos de IA esgotados.");
-        throw new Error("Falha no chat");
-      }
-
-      const reader = resp.body.getReader();
-      const dec = new TextDecoder();
-      let buf = ""; let acc = "";
-      setMessages((p) => [...p, { role: "assistant", content: "" }]);
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buf += dec.decode(value, { stream: true });
-        let nl: number;
-        while ((nl = buf.indexOf("\n")) !== -1) {
-          let line = buf.slice(0, nl); buf = buf.slice(nl + 1);
-          if (line.endsWith("\r")) line = line.slice(0, -1);
-          if (!line.startsWith("data: ")) continue;
-          const json = line.slice(6).trim();
-          if (json === "[DONE]") { reader.cancel(); break; }
-          try {
-            const parsed = JSON.parse(json);
-            const delta = parsed.choices?.[0]?.delta?.content;
-            if (delta) {
-              acc += delta;
-              setMessages((p) => p.map((m, i) => (i === p.length - 1 ? { ...m, content: acc } : m)));
-            }
-          } catch { buf = line + "\n" + buf; break; }
-        }
-      }
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Erro");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao consultar a IA");
+      setMessages((prev) => prev.slice(0, -1));
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   return (
-    <div className="p-6 space-y-4 flex flex-col h-full">
-      <PageHeader title="Chat analítico" description="Pergunte em linguagem natural sobre sua base de propostas." />
+    <div className="p-6 space-y-6">
+      <PageHeader
+        title="Intelligence Brain"
+        subtitle="Pergunte à IA sobre propostas, equipamentos, concorrentes, clientes, padrões técnicos e benchmark."
+      />
 
-      <Card className="flex-1 flex flex-col gradient-surface border-border overflow-hidden">
-        <div className="flex-1 overflow-y-auto scrollbar-thin p-5 space-y-4">
-          {messages.length === 0 && (
-            <div className="space-y-3">
-              <div className="text-sm text-muted-foreground">Comece com uma pergunta:</div>
-              <div className="grid md:grid-cols-2 gap-2">
-                {SUGESTOES.map((s) => (
-                  <button key={s} onClick={() => send(s)} className="text-left text-sm px-4 py-3 rounded-md border border-border hover:border-primary hover:bg-primary/5 transition-colors">
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          {messages.map((m, i) => (
-            <div key={i} className={`flex gap-3 ${m.role === "user" ? "flex-row-reverse" : ""}`}>
-              <div className={`size-8 shrink-0 rounded-md flex items-center justify-center ${m.role === "user" ? "bg-muted" : "gradient-primary"}`}>
-                {m.role === "user" ? <UserIcon className="size-4" /> : <Brain className="size-4 text-primary-foreground" />}
-              </div>
-              <div className={`max-w-[75%] px-4 py-2.5 rounded-lg text-sm whitespace-pre-wrap ${m.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted/50 border border-border"}`}>
-                {m.content || (loading && i === messages.length - 1 ? <Loader2 className="size-3.5 animate-spin" /> : "")}
-              </div>
-            </div>
+      <div className="grid gap-4 md:grid-cols-4">
+        <TopCard
+          icon={Brain}
+          title="Análise estratégica"
+          text="Responde perguntas sobre toda a base consolidada."
+        />
+        <TopCard
+          icon={BarChart3}
+          title="Benchmark comercial"
+          text="Cruza valor, pagamento, prazo, garantia e status."
+        />
+        <TopCard
+          icon={Wrench}
+          title="Benchmark técnico"
+          text="Cruza equipamentos, HP, kcal/h, gases e compressores."
+        />
+        <TopCard
+          icon={MapPinned}
+          title="Leitura regional"
+          text="Detecta concentração por estado, cliente e concorrente."
+        />
+      </div>
+
+      <Card className="p-4">
+        <div className="flex flex-wrap gap-2">
+          {INTELLIGENCE_SUGGESTIONS.map((suggestion) => (
+            <button
+              key={suggestion}
+              onClick={() => send(suggestion)}
+              className="rounded-md border px-3 py-2 text-sm text-left hover:bg-primary/5 hover:border-primary transition-colors"
+            >
+              {suggestion}
+            </button>
           ))}
+        </div>
+      </Card>
+
+      <Card className="p-4 space-y-4">
+        <div className="space-y-4 max-h-[60vh] overflow-auto">
+          {messages.length === 0 ? (
+            <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+              Faça uma pergunta sobre a base. Exemplos:
+              <div className="mt-3 space-y-1">
+                <div>• Qual concorrente tem maior valor total?</div>
+                <div>• Quais equipamentos aparecem mais?</div>
+                <div>• Qual padrão técnico se repete em determinado estado?</div>
+              </div>
+            </div>
+          ) : (
+            messages.map((message, index) => (
+              <div
+                key={index}
+                className={`flex gap-3 ${
+                  message.role === "user" ? "justify-end" : "justify-start"
+                }`}
+              >
+                {message.role === "assistant" && (
+                  <div className="mt-1 rounded-full border p-2">
+                    <Brain className="size-4" />
+                  </div>
+                )}
+
+                <div
+                  className={`max-w-[85%] rounded-xl border px-4 py-3 whitespace-pre-wrap text-sm ${
+                    message.role === "user"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-background"
+                  }`}
+                >
+                  <div className="mb-2 flex items-center gap-2">
+                    {message.role === "user" ? (
+                      <>
+                        <UserIcon className="size-4" />
+                        <Badge variant="secondary">Pergunta</Badge>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="size-4" />
+                        <Badge>Intelligence Brain</Badge>
+                      </>
+                    )}
+                  </div>
+
+                  {message.content ||
+                    (loading && index === messages.length - 1 ? "Analisando base..." : "")}
+                </div>
+
+                {message.role === "user" && (
+                  <div className="mt-1 rounded-full border p-2">
+                    <UserIcon className="size-4" />
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+
           <div ref={endRef} />
         </div>
-        <div className="border-t border-border p-3 flex gap-2">
+
+        <div className="flex gap-3">
           <Textarea
-            value={input} onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(input); } }}
-            placeholder="Digite sua pergunta..."
-            className="resize-none min-h-[44px] max-h-32"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                send(input);
+              }
+            }}
+            placeholder="Ex.: Qual concorrente usa mais R404? Qual proposta tem maior HP total?"
+            className="resize-none min-h-[54px] max-h-40"
           />
-          <Button onClick={() => send(input)} disabled={loading || !input.trim()} className="self-end">
+
+          <Button onClick={() => send(input)} disabled={!canSend} className="self-end">
             {loading ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
           </Button>
         </div>
       </Card>
     </div>
+  );
+}
+
+function TopCard({
+  icon: Icon,
+  title,
+  text,
+}: {
+  icon: typeof Brain;
+  title: string;
+  text: string;
+}) {
+  return (
+    <Card className="p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="font-medium">{title}</div>
+          <div className="mt-1 text-sm text-muted-foreground">{text}</div>
+        </div>
+        <Icon className="size-5 text-muted-foreground" />
+      </div>
+    </Card>
   );
 }
