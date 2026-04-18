@@ -364,8 +364,15 @@ function mergeTechnicalHints(extracted: any, sourceText: string) {
     ...((hints.evidencias || []).filter((item: any) => item?.campo && !camposExistentes.has(item.campo))),
   ];
 
+  // Manufacturer/competitor detection: prefer AI value, fall back to text scan, then null.
+  const aiFabricante = normalizeSpaces(normalized.fabricante);
+  const detected = !aiFabricante ? detectManufacturer(sourceText) : null;
+  const fabricante = aiFabricante || detected || null;
+
   return {
     ...normalized,
+    fabricante,
+    fabricante_origem: aiFabricante ? "ia" : detected ? "heuristica" : "indefinido",
     dados_tecnicos: dadosTecnicos,
     evidencias,
   };
