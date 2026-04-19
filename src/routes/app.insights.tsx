@@ -72,7 +72,7 @@ function InsightRadarPage() {
         description="Leitura automática da base com padrões, alertas e anomalias"
         action={
           <div className="flex gap-2">
-            <Link to="/app/chat">
+            <Link to="/app/intelligence">
               <Button variant="outline">
                 <Brain className="mr-2 h-4 w-4" />
                 Abrir Intelligence Brain
