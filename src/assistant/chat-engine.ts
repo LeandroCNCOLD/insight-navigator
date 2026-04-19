@@ -18,7 +18,7 @@ export async function streamChatAnswer(
     data: { session },
   } = await supabase.auth.getSession();
 
-  const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-analytics`;
+  const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/assistant-chat`;
 
   const resp = await fetch(url, {
     method: "POST",
