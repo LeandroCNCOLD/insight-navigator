@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AssistantRouteImport } from './routes/assistant'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppIndexRouteImport } from './routes/app.index'
@@ -27,7 +28,6 @@ import { Route as AppDictionariesRouteImport } from './routes/app.dictionaries'
 import { Route as AppCompetitorsRouteImport } from './routes/app.competitors'
 import { Route as AppCompareRouteImport } from './routes/app.compare'
 import { Route as AppClientsRouteImport } from './routes/app.clients'
-import { Route as AppChatRouteImport } from './routes/app.chat'
 import { Route as AppAuditRouteImport } from './routes/app.audit'
 import { Route as AppDocumentsIndexRouteImport } from './routes/app.documents.index'
 import { Route as AppDocumentsIdRouteImport } from './routes/app.documents.$id'
@@ -42,6 +42,11 @@ import { Route as AppDocumentsIdForensicRouteImport } from './routes/app.documen
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AssistantRoute = AssistantRouteImport.update({
+  id: '/assistant',
+  path: '/assistant',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppRoute = AppRouteImport.update({
@@ -129,11 +134,6 @@ const AppClientsRoute = AppClientsRouteImport.update({
   path: '/clients',
   getParentRoute: () => AppRoute,
 } as any)
-const AppChatRoute = AppChatRouteImport.update({
-  id: '/chat',
-  path: '/chat',
-  getParentRoute: () => AppRoute,
-} as any)
 const AppAuditRoute = AppAuditRouteImport.update({
   id: '/audit',
   path: '/audit',
@@ -189,9 +189,9 @@ const AppDocumentsIdForensicRoute = AppDocumentsIdForensicRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
+  '/assistant': typeof AssistantRoute
   '/auth': typeof AuthRoute
   '/app/audit': typeof AppAuditRoute
-  '/app/chat': typeof AppChatRoute
   '/app/clients': typeof AppClientsRoute
   '/app/compare': typeof AppCompareRoute
   '/app/competitors': typeof AppCompetitorsRouteWithChildren
@@ -219,9 +219,9 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/assistant': typeof AssistantRoute
   '/auth': typeof AuthRoute
   '/app/audit': typeof AppAuditRoute
-  '/app/chat': typeof AppChatRoute
   '/app/clients': typeof AppClientsRoute
   '/app/compare': typeof AppCompareRoute
   '/app/competitors': typeof AppCompetitorsRouteWithChildren
@@ -251,9 +251,9 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
+  '/assistant': typeof AssistantRoute
   '/auth': typeof AuthRoute
   '/app/audit': typeof AppAuditRoute
-  '/app/chat': typeof AppChatRoute
   '/app/clients': typeof AppClientsRoute
   '/app/compare': typeof AppCompareRoute
   '/app/competitors': typeof AppCompetitorsRouteWithChildren
@@ -284,9 +284,9 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/app'
+    | '/assistant'
     | '/auth'
     | '/app/audit'
-    | '/app/chat'
     | '/app/clients'
     | '/app/compare'
     | '/app/competitors'
@@ -314,9 +314,9 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/assistant'
     | '/auth'
     | '/app/audit'
-    | '/app/chat'
     | '/app/clients'
     | '/app/compare'
     | '/app/competitors'
@@ -345,9 +345,9 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/app'
+    | '/assistant'
     | '/auth'
     | '/app/audit'
-    | '/app/chat'
     | '/app/clients'
     | '/app/compare'
     | '/app/competitors'
@@ -377,6 +377,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
+  AssistantRoute: typeof AssistantRoute
   AuthRoute: typeof AuthRoute
 }
 
@@ -387,6 +388,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/assistant': {
+      id: '/assistant'
+      path: '/assistant'
+      fullPath: '/assistant'
+      preLoaderRoute: typeof AssistantRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/app': {
@@ -508,13 +516,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppClientsRouteImport
       parentRoute: typeof AppRoute
     }
-    '/app/chat': {
-      id: '/app/chat'
-      path: '/chat'
-      fullPath: '/app/chat'
-      preLoaderRoute: typeof AppChatRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/app/audit': {
       id: '/app/audit'
       path: '/audit'
@@ -614,7 +615,6 @@ const AppDocumentsIdRouteWithChildren = AppDocumentsIdRoute._addFileChildren(
 
 interface AppRouteChildren {
   AppAuditRoute: typeof AppAuditRoute
-  AppChatRoute: typeof AppChatRoute
   AppClientsRoute: typeof AppClientsRoute
   AppCompareRoute: typeof AppCompareRoute
   AppCompetitorsRoute: typeof AppCompetitorsRouteWithChildren
@@ -641,7 +641,6 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppAuditRoute: AppAuditRoute,
-  AppChatRoute: AppChatRoute,
   AppClientsRoute: AppClientsRoute,
   AppCompareRoute: AppCompareRoute,
   AppCompetitorsRoute: AppCompetitorsRouteWithChildren,
@@ -671,6 +670,7 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
+  AssistantRoute: AssistantRoute,
   AuthRoute: AuthRoute,
 }
 export const routeTree = rootRouteImport

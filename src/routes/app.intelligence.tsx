@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { Bot, BrainCircuit, Database, LoaderCircle, Sparkles } from "lucide-react";
 
-import { runIntelligenceQuery, type IntelligenceQueryResult } from "@/lib/intelligence-engine";
+import { runAnalysisQuery, type AnalysisQueryResult } from "@/lib/analysis-engine";
 
 export const Route = createFileRoute("/app/intelligence")({
   component: IntelligencePage,
@@ -20,7 +20,7 @@ const SUGGESTIONS = [
 
 function IntelligencePage() {
   const [question, setQuestion] = useState("");
-  const [result, setResult] = useState<IntelligenceQueryResult | null>(null);
+  const [result, setResult] = useState<AnalysisQueryResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,7 +37,7 @@ function IntelligencePage() {
     try {
       setLoading(true);
       setError(null);
-      const response = await runIntelligenceQuery(question);
+      const response = await runAnalysisQuery(question);
       setResult(response);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao consultar a inteligência.");
@@ -153,7 +153,7 @@ function IntelligencePage() {
                         {section.title}
                       </h3>
                       <div className="space-y-2 text-sm">
-                        {section.items.map((item, index) => (
+                        {section.items.map((item: string, index: number) => (
                           <div key={`${section.title}-${index}`} className="rounded-lg border p-3">
                             {item}
                           </div>
