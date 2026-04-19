@@ -51,7 +51,7 @@ function Landing() {
             { icon: FileText, title: "Upload massivo", desc: "PDF, DOCX, XLSX. Centenas de arquivos por vez, organizados por concorrente, cliente e região." },
             { icon: Brain, title: "Extração com IA", desc: "Cliente, valor, equipamentos, prazos, garantia, cláusulas — tudo estruturado com score de confiança." },
             { icon: BarChart3, title: "Benchmarking técnico", desc: "Dashboards comerciais, técnicos, contratuais, geográficos e estratégicos com filtros profundos." },
-            { icon: MessagesSquare, title: "Chat analítico", desc: "Pergunte em linguagem natural sobre sua base e receba respostas com evidência e gráficos." },
+            { icon: MessagesSquare, title: "Recomendação inteligente", desc: "Sugestões de propostas baseadas em casos comparáveis, padrões técnicos e benchmarking de mercado." },
             { icon: ShieldCheck, title: "Revisão humana", desc: "Valide campos com baixa confiança, treine dicionários e melhore a precisão continuamente." },
             { icon: Zap, title: "Comparação lado-a-lado", desc: "Compare propostas, escopo, prazos, valores e cláusulas para identificar padrões e oportunidades." },
           ].map((f) => (
