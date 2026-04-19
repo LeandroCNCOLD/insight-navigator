@@ -1,12 +1,20 @@
 import { supabase } from "@/integrations/supabase/client";
 
-export type IntelligenceMessage = {
+/**
+ * Analysis Engine — Insight Navigator only.
+ *
+ * Powers contextual analytical queries over the consolidated dataset
+ * (proposals, equipments, competitors, clients).
+ *
+ * NOT a generic chat. The standalone Chat product lives in src/assistant/.
+ */
+export type AnalysisMessage = {
   role: "user" | "assistant";
   content: string;
 };
 
-export async function streamIntelligenceAnswer(
-  messages: IntelligenceMessage[],
+export async function streamAnalysisAnswer(
+  messages: AnalysisMessage[],
   onDelta: (text: string) => void,
 ) {
   const {
@@ -32,7 +40,7 @@ export async function streamIntelligenceAnswer(
       throw new Error("Créditos de IA esgotados.");
     }
     const text = await resp.text().catch(() => "");
-    throw new Error(text || "Falha ao consultar inteligência analítica.");
+    throw new Error(text || "Falha ao consultar a camada analítica.");
   }
 
   const reader = resp.body.getReader();
@@ -78,16 +86,16 @@ export async function streamIntelligenceAnswer(
   return accumulated;
 }
 
-export type IntelligenceQueryResult = {
+export type AnalysisQueryResult = {
   answer: string;
   insights: string[];
   patterns: string[];
   risks: string[];
 };
 
-export async function runIntelligenceQuery(question: string): Promise<IntelligenceQueryResult> {
+export async function runAnalysisQuery(question: string): Promise<AnalysisQueryResult> {
   let answer = "";
-  await streamIntelligenceAnswer(
+  await streamAnalysisAnswer(
     [{ role: "user", content: question }],
     (text) => {
       answer = text;
@@ -111,7 +119,7 @@ export async function runIntelligenceQuery(question: string): Promise<Intelligen
   };
 }
 
-export const INTELLIGENCE_SUGGESTIONS = [
+export const ANALYSIS_SUGGESTIONS = [
   "Qual concorrente tem maior valor total mapeado na base?",
   "Quais estados concentram mais propostas?",
   "Quais modelos de equipamento aparecem com maior frequência?",
