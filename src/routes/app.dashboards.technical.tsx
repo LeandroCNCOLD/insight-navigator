@@ -426,7 +426,8 @@ function Tech() {
                   <th className="text-left px-3 py-2 font-medium">Modelo / Marca</th>
                   <th className="text-left px-3 py-2 font-medium">Tipo</th>
                   <th className="text-right px-3 py-2 font-medium">Qtd</th>
-                  <th className="text-left px-3 py-2 font-medium">Capacidade</th>
+                  <th className="text-left px-3 py-2 font-medium">Capacidade unit.</th>
+                  <th className="text-left px-3 py-2 font-medium">Capac. total</th>
                   <th className="text-left px-3 py-2 font-medium">Potência</th>
                   <th className="text-left px-3 py-2 font-medium">Temperatura</th>
                   <th className="text-left px-3 py-2 font-medium">Gás</th>
