@@ -485,11 +485,13 @@ Deno.serve(async (req) => {
     const MAX = 60000;
     const content = text.length > MAX ? text.slice(0, MAX) + "\n\n[...truncado...]" : text;
 
-    const MODELS = ["google/gemini-2.5-flash", "google/gemini-2.5-pro", "google/gemini-2.5-flash-lite"];
+    const MODELS = ["google/gemini-2.5-pro", "google/gemini-2.5-flash", "google/gemini-2.5-flash-lite"];
     const MAX_ATTEMPTS_PER_MODEL = 3;
     let toolCall: any = null;
+    let jsonFallback: any = null;
     let lastError: string | null = null;
     let lastStatus = 0;
+    let schemaTooComplex = false;
 
     const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -512,7 +514,6 @@ Deno.serve(async (req) => {
 
           if (!res.ok) {
             lastStatus = res.status;
-            // Retryable errors: 429 (rate-limit), 502/503/504 (gateway/upstream blip)
             if ([429, 502, 503, 504].includes(res.status)) {
               lastError = `HTTP ${res.status}`;
               const backoffMs = Math.min(8000, 600 * Math.pow(2, attempt - 1)) + Math.floor(Math.random() * 400);
@@ -520,13 +521,16 @@ Deno.serve(async (req) => {
               await sleep(backoffMs);
               continue;
             }
-            // 402 = creditos esgotados, falha definitiva
             if (res.status === 402) {
               return new Response(JSON.stringify({ error: "Créditos de IA esgotados. Adicione créditos no workspace." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
             }
             lastError = await res.text();
             console.error(`AI gateway error model=${model}`, res.status, lastError);
-            break; // tenta próximo modelo
+            if (res.status === 400 && /too much branching|INVALID_ARGUMENT/i.test(lastError)) {
+              schemaTooComplex = true;
+              break outer;
+            }
+            break;
           }
 
           const data = await res.json();
@@ -537,6 +541,10 @@ Deno.serve(async (req) => {
           if (innerError) {
             console.error(`AI inner error model=${model}`, JSON.stringify(innerError));
             lastError = innerError.message || "provider error";
+            if (/too much branching|INVALID_ARGUMENT/i.test(lastError)) {
+              schemaTooComplex = true;
+              break outer;
+            }
             break;
           }
 
@@ -563,12 +571,55 @@ Deno.serve(async (req) => {
       }
     }
 
-    if (!toolCall) {
-      // 502 → cliente sabe que pode reprocessar; não consumimos crédito desnecessário
+    // Fallback: schema rejected by Gemini ("too much branching") → switch to JSON mode (no tools).
+    if (!toolCall && schemaTooComplex) {
+      console.warn("Schema rejected by provider — falling back to JSON mode (no tools)");
+      const jsonInstruction = `${SYSTEM_PROMPT}\n\nIMPORTANTE: Retorne APENAS um JSON válido (sem markdown, sem texto extra) seguindo a estrutura da função extract_proposal. Campos: numero, data_proposta, tipo_documental, status_proposta, fabricante, fabricante_cnpj, cliente_nome, cliente_razao_social, cliente_cidade, cliente_estado, segmento, segmentacao_cliente, valor_total, condicao_pagamento, parcelas, prazo_fabricacao_dias, prazo_entrega_dias, prazo_instalacao_dias, garantia_meses, garantia_limitacoes, exclusoes_garantia, frete_tipo, frete_incluso, instalacao_inclusa, fornecimento_cliente, vendedor, representante_legal, tem_assinatura, observacoes, riscos, score_confianca (0-1, obrigatório), resumo_executivo, resumo_tecnico, resumo_comercial, insights_benchmarking, palavras_chave (array), porte_projeto, indicio_fechamento, dados_tecnicos (objeto), equipamentos (array), clausulas (array de {tipo, texto}), evidencias (array de {campo, valor_extraido, pagina, trecho, score_confianca}). Use null para o que não encontrar.`;
+      for (const model of MODELS) {
+        try {
+          const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model,
+              messages: [
+                { role: "system", content: jsonInstruction },
+                { role: "user", content: `Documento: ${fileName} (${fileType})\n\n--- INÍCIO ---\n${content}\n--- FIM ---` },
+              ],
+              response_format: { type: "json_object" },
+            }),
+          });
+          if (!res.ok) {
+            lastStatus = res.status;
+            lastError = await res.text();
+            console.error(`JSON-mode fallback error model=${model}`, res.status, lastError);
+            continue;
+          }
+          const data = await res.json();
+          const raw = data.choices?.[0]?.message?.content || "";
+          const cleaned = raw.replace(/^```json\s*/i, "").replace(/```\s*$/i, "").trim();
+          try {
+            jsonFallback = JSON.parse(cleaned);
+            console.log(`JSON-mode fallback OK with model=${model}`);
+            break;
+          } catch (parseErr) {
+            lastError = `JSON parse falhou: ${(parseErr as Error).message}`;
+            console.error(lastError, cleaned.slice(0, 300));
+            continue;
+          }
+        } catch (fetchErr) {
+          lastError = fetchErr instanceof Error ? fetchErr.message : "fetch failed";
+          console.warn(`JSON-mode fetch error model=${model}: ${lastError}`);
+        }
+      }
+    }
+
+    if (!toolCall && !jsonFallback) {
       return new Response(JSON.stringify({ error: `IA indisponível após retries: ${lastError || "sem detalhes"}` }), { status: lastStatus === 503 ? 503 : 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const extracted = mergeTechnicalHints(JSON.parse(toolCall.function.arguments), content);
+    const rawArgs = toolCall ? JSON.parse(toolCall.function.arguments) : jsonFallback;
+    const extracted = mergeTechnicalHints(rawArgs, content);
     const validation = validateExtraction(extracted, content);
     if (!validation.valid) {
       return new Response(JSON.stringify({ error: validation.reason }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
