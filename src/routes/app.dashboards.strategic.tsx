@@ -410,9 +410,8 @@ function Strategic() {
                       ? (p.totalEquipamentos / p.totalCamarasFisicas).toFixed(1)
                       : "—";
                     return (
-                      <>
+                      <Fragment key={p.padrao}>
                         <tr
-                          key={p.padrao}
                           className="hover:bg-muted/20 cursor-pointer"
                           onClick={() => toggle(p.padrao)}
                         >
@@ -462,14 +461,14 @@ function Strategic() {
                           </td>
                         </tr>
                         {isOpen && (
-                          <tr key={`${p.padrao}-detail`} className="bg-muted/10">
+                          <tr className="bg-muted/10">
                             <td></td>
                             <td colSpan={9} className="px-3 py-4">
                               <PatternDetail row={p} />
                             </td>
                           </tr>
                         )}
-                      </>
+                      </Fragment>
                     );
                   })}
                 </tbody>
