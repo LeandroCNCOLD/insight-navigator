@@ -18,6 +18,7 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 export const Route = createFileRoute("/app/clients")({
   component: Clients,
@@ -43,25 +44,38 @@ type ClientRow = {
   segmento: string | null;
   notas: string | null;
   stats: { count: number; total: number; ultima: string | null };
-  proposals: Array<{ id: string; numero: string | null; valor_total: number | null; data_proposta: string | null; padrao_camara: string | null; resumo_executivo: string | null }>;
+  origens: { house: boolean; concorrente: boolean };
+  proposals: Array<{ id: string; numero: string | null; valor_total: number | null; data_proposta: string | null; padrao_camara: string | null; resumo_executivo: string | null; is_house: boolean; competitor_nome: string | null }>;
 };
 
 function Clients() {
   const qc = useQueryClient();
   const [q, setQ] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
+  const [tab, setTab] = useState<"todos" | "house" | "concorrentes">("todos");
 
   const { data } = useQuery({
     queryKey: ["clients-crm"],
     queryFn: async (): Promise<ClientRow[]> => {
-      const { data: clients } = await supabase.from("clients").select("*").order("nome");
-      const { data: props } = await supabase
-        .from("proposals")
-        .select("id,client_id,numero,valor_total,data_proposta,padrao_camara,resumo_executivo,created_at");
+      const [{ data: clients }, { data: props }, { data: comps }] = await Promise.all([
+        supabase.from("clients").select("*").order("nome"),
+        supabase
+          .from("proposals")
+          .select("id,client_id,competitor_id,numero,valor_total,data_proposta,padrao_camara,resumo_executivo,created_at"),
+        supabase.from("competitors").select("id,nome,is_house"),
+      ]);
+      const compMap = new Map<string, { nome: string; is_house: boolean }>();
+      (comps || []).forEach((c: any) => compMap.set(c.id, { nome: c.nome, is_house: !!c.is_house }));
+
       const byClient: Record<string, any[]> = {};
       (props || []).forEach((p) => {
         if (!p.client_id) return;
-        (byClient[p.client_id] ||= []).push(p);
+        const meta = p.competitor_id ? compMap.get(p.competitor_id) : null;
+        (byClient[p.client_id] ||= []).push({
+          ...p,
+          is_house: meta?.is_house ?? false,
+          competitor_nome: meta?.nome ?? null,
+        });
       });
       return (clients || []).map((c: any) => {
         const list = byClient[c.id] || [];
@@ -71,9 +85,12 @@ function Clients() {
           .filter(Boolean)
           .sort()
           .reverse()[0] || null;
+        const house = list.some((p) => p.is_house);
+        const concorrente = list.some((p) => !p.is_house);
         return {
           ...c,
           stats: { count: list.length, total, ultima },
+          origens: { house, concorrente },
           proposals: list.sort((a, b) => (b.data_proposta || "").localeCompare(a.data_proposta || "")),
         };
       });
@@ -83,16 +100,30 @@ function Clients() {
   const filtered = useMemo(() => {
     if (!data) return [];
     const term = q.toLowerCase();
+    const byTab = data.filter((c) => {
+      if (tab === "house") return c.origens.house;
+      if (tab === "concorrentes") return c.origens.concorrente && !c.origens.house;
+      return true;
+    });
     return !term
-      ? data
-      : data.filter(
+      ? byTab
+      : byTab.filter(
           (c) =>
             c.nome?.toLowerCase().includes(term) ||
             c.cnpj?.toLowerCase().includes(term) ||
             c.cidade?.toLowerCase().includes(term) ||
             c.email?.toLowerCase().includes(term),
         );
-  }, [data, q]);
+  }, [data, q, tab]);
+
+  const counts = useMemo(() => {
+    const all = data || [];
+    return {
+      todos: all.length,
+      house: all.filter((c) => c.origens.house).length,
+      concorrentes: all.filter((c) => c.origens.concorrente && !c.origens.house).length,
+    };
+  }, [data]);
 
   const open = filtered.find((c) => c.id === openId) || null;
 
@@ -102,12 +133,21 @@ function Clients() {
     <div className="p-6 space-y-5">
       <PageHeader title="Clientes" description={`${data?.length || 0} cliente(s) · CRM de prospecção`} />
 
-      <Input
-        placeholder="Buscar por nome, CNPJ, cidade ou e-mail…"
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        className="max-w-md"
-      />
+      <div className="flex flex-wrap items-center gap-3">
+        <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
+          <TabsList>
+            <TabsTrigger value="todos">Todos <span className="ml-1.5 text-[10px] opacity-70">({counts.todos})</span></TabsTrigger>
+            <TabsTrigger value="house">CN Cold <span className="ml-1.5 text-[10px] opacity-70">({counts.house})</span></TabsTrigger>
+            <TabsTrigger value="concorrentes">Concorrentes <span className="ml-1.5 text-[10px] opacity-70">({counts.concorrentes})</span></TabsTrigger>
+          </TabsList>
+        </Tabs>
+        <Input
+          placeholder="Buscar por nome, CNPJ, cidade ou e-mail…"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          className="max-w-md"
+        />
+      </div>
 
       {!filtered.length ? (
         <EmptyState
@@ -138,7 +178,11 @@ function Clients() {
                     <div className="flex items-center gap-2">
                       <Building2 className="size-3.5 text-muted-foreground" />
                       <div>
-                        <div className="font-medium">{c.nome}</div>
+                        <div className="font-medium flex items-center gap-1.5 flex-wrap">
+                          {c.nome}
+                          {c.origens.house && <Badge variant="outline" className="text-[9px] border-success/40 text-success">CN Cold</Badge>}
+                          {c.origens.concorrente && <Badge variant="outline" className="text-[9px]">Concorrente</Badge>}
+                        </div>
                         {c.segmento && <div className="text-[10px] text-muted-foreground">{c.segmento}</div>}
                       </div>
                     </div>
