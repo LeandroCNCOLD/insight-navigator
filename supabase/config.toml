@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.assistant-chat]
 verify_jwt = false
+
+[functions.visit-route-planner]
+verify_jwt = false

@@ -18,10 +18,21 @@ import {
   Wrench,
   Wind,
   Package,
+  MapPin,
+  Users,
+  Phone,
+  Mail,
+  Route as RouteIcon,
+  Loader2,
+  Building2,
 } from "lucide-react";
 import { formatBRL } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { toast } from "sonner";
+import ReactMarkdown from "react-markdown";
 
 type CamaraJson = {
   nome?: string;
@@ -78,6 +89,29 @@ type EquipmentRow = {
   capacidade_kcal: number | null;
 };
 
+type ClientRow = {
+  id: string;
+  nome: string;
+  razao_social: string | null;
+  cidade: string | null;
+  estado: string | null;
+  segmento: string | null;
+  contato_nome: string | null;
+  contato_cargo: string | null;
+  telefone: string | null;
+  whatsapp: string | null;
+  email: string | null;
+  endereco: string | null;
+  cep: string | null;
+  cnpj: string | null;
+};
+
+type ClientPattern = {
+  client: ClientRow;
+  propostas: number;
+  valorTotal: number;
+};
+
 type PatternRow = {
   padrao: string;
   count: number;
@@ -96,7 +130,7 @@ type PatternRow = {
   umidade_pct?: number;
   carga_termica_kcal_h?: number;
   // distribuição de sistemas
-  sistemas: Record<string, number>; // Plug-In, Split, etc → nº propostas
+  sistemas: Record<string, number>;
   compressores: Record<string, number>;
   gases: Record<string, number>;
   // equipamentos detalhados
@@ -112,7 +146,12 @@ type PatternRow = {
   potenciaMediaHp?: number;
   capacidadeMediaKcal?: number;
   proposalIds: string[];
+  // geo + clientes
+  clientesDetalhe: ClientPattern[];
+  estados: Record<string, number>; // estado → nº clientes
+  cidades: Record<string, number>; // "Cidade-UF" → nº clientes
 };
+
 
 export const Route = createFileRoute("/app/dashboards/strategic")({
   component: Strategic,
@@ -152,6 +191,18 @@ function Strategic() {
     },
   });
 
+  const { data: clients } = useQuery<ClientRow[]>({
+    queryKey: ["dash-camara-clients"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("clients")
+        .select(
+          "id,nome,razao_social,cidade,estado,segmento,contato_nome,contato_cargo,telefone,whatsapp,email,endereco,cep,cnpj",
+        );
+      return (data || []) as unknown as ClientRow[];
+    },
+  });
+
   const patterns: PatternRow[] = useMemo(() => {
     if (!proposals) return [];
 
@@ -161,6 +212,9 @@ function Strategic() {
       arr.push(e);
       equipByProposal.set(e.proposal_id, arr);
     });
+
+    const clientById = new Map<string, ClientRow>();
+    (clients || []).forEach((c) => clientById.set(c.id, c));
 
     const map = new Map<string, PatternRow>();
 
@@ -185,13 +239,15 @@ function Strategic() {
           valorMedioPorCamara: 0,
           valorMedioPorEquipamento: 0,
           proposalIds: [],
+          clientesDetalhe: [],
+          estados: {},
+          cidades: {},
         } as PatternRow);
 
       cur.count++;
       cur.total += Number(p.valor_total) || 0;
       cur.proposalIds.push(p.id);
 
-      // técnica: pega o primeiro câmara amostral para representar
       const camaras = p.analise_tecnica_profunda?.camaras || [];
       if (camaras.length && cur.largura_m === undefined) {
         const c = camaras[0];
@@ -211,7 +267,6 @@ function Strategic() {
         cur.totalCamarasFisicas += c.quantidade_unidades || 1;
       });
 
-      // sistema (Plug-In x Split) via resumo + equipamentos reais
       const resumo = p.analise_tecnica_profunda?.equipamentos_resumo;
       const sistemaResumo = resumo?.tipo_sistema;
       const equips = equipByProposal.get(p.id) || [];
@@ -224,19 +279,13 @@ function Strategic() {
         cur.sistemas[t] = (cur.sistemas[t] || 0) + 1;
       });
 
-      // compressores e gases
       (resumo?.tipos_compressor || []).forEach((c) => {
         cur.compressores[c] = (cur.compressores[c] || 0) + 1;
       });
       (resumo?.gases_refrigerantes || []).forEach((g) => {
         cur.gases[g] = (cur.gases[g] || 0) + 1;
       });
-      equips.forEach((e) => {
-        if (e.compressor) cur.compressores[e.compressor] = (cur.compressores[e.compressor] || 0) + 0; // já contado pelo resumo, evita duplicar
-        if (e.gas_refrigerante) cur.gases[e.gas_refrigerante] = (cur.gases[e.gas_refrigerante] || 0) + 0;
-      });
 
-      // equipamentos detalhados (modelo)
       equips.forEach((e) => {
         const qtd = e.quantidade || 1;
         cur.totalEquipamentos += qtd;
@@ -255,17 +304,32 @@ function Strategic() {
       map.set(k, cur);
     });
 
-    // segundo passo: contar clientes únicos + médias
-    const clientesPorPadrao = new Map<string, Set<string>>();
+    // segundo passo: clientes únicos + agregação geo + médias
+    const clientesPorPadrao = new Map<string, Map<string, ClientPattern>>();
     proposals.forEach((p) => {
-      const set = clientesPorPadrao.get(p.padrao_camara) || new Set<string>();
-      if (p.client_id) set.add(p.client_id);
-      clientesPorPadrao.set(p.padrao_camara, set);
+      if (!p.client_id) return;
+      const padraoClients = clientesPorPadrao.get(p.padrao_camara) || new Map<string, ClientPattern>();
+      const c = clientById.get(p.client_id);
+      if (!c) return;
+      const cur = padraoClients.get(p.client_id) || { client: c, propostas: 0, valorTotal: 0 };
+      cur.propostas++;
+      cur.valorTotal += Number(p.valor_total) || 0;
+      padraoClients.set(p.client_id, cur);
+      clientesPorPadrao.set(p.padrao_camara, padraoClients);
     });
 
     return Array.from(map.values())
       .map((row) => {
-        row.clientes = clientesPorPadrao.get(row.padrao)?.size || 0;
+        const padraoClients = clientesPorPadrao.get(row.padrao);
+        const detalhe = padraoClients ? Array.from(padraoClients.values()) : [];
+        row.clientesDetalhe = detalhe.sort((a, b) => b.valorTotal - a.valorTotal);
+        row.clientes = detalhe.length;
+        detalhe.forEach((cp) => {
+          const uf = cp.client.estado || "—";
+          row.estados[uf] = (row.estados[uf] || 0) + 1;
+          const cidadeKey = `${cp.client.cidade || "—"} / ${uf}`;
+          row.cidades[cidadeKey] = (row.cidades[cidadeKey] || 0) + 1;
+        });
         row.ticketMedio = row.count ? row.total / row.count : 0;
         row.valorMedioPorCamara = row.totalCamarasFisicas
           ? row.total / row.totalCamarasFisicas
@@ -276,7 +340,7 @@ function Strategic() {
         return row;
       })
       .sort((a, b) => b.count - a.count);
-  }, [proposals, equipments]);
+  }, [proposals, equipments, clients]);
 
   // Agregados para os cards de distribuição (mantidos)
   const aggregates = useMemo(() => {
@@ -551,6 +615,66 @@ function PatternDetail({ row }: { row: PatternRow }) {
   const compressores = Object.entries(row.compressores).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
   const gases = Object.entries(row.gases).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
   const modelos = Object.entries(row.equipModelos).sort((a, b) => b[1].qtd - a[1].qtd);
+  const estados = Object.entries(row.estados).sort((a, b) => b[1] - a[1]);
+  const cidades = Object.entries(row.cidades).sort((a, b) => b[1] - a[1]);
+
+  const [routeLoading, setRouteLoading] = useState(false);
+  const [routeOpen, setRouteOpen] = useState(false);
+  const [routeText, setRouteText] = useState("");
+
+  async function gerarRoteiro() {
+    setRouteLoading(true);
+    setRouteText("");
+    try {
+      const payload = {
+        padrao: row.padrao,
+        technicalContext: {
+          dimensoes: formatDims(row),
+          area_m2: row.area_m2,
+          volume_m3: row.volume_m3,
+          temperatura_c: row.temperatura_alvo_c,
+          isolamento: row.isolamento_tipo,
+          espessura_mm: row.isolamento_espessura_mm,
+          produto: row.produto,
+          sistemas: row.sistemas,
+        },
+        clients: row.clientesDetalhe.map((cp) => ({
+          nome: cp.client.nome,
+          razao_social: cp.client.razao_social,
+          cnpj: cp.client.cnpj,
+          cidade: cp.client.cidade,
+          estado: cp.client.estado,
+          endereco: cp.client.endereco,
+          cep: cp.client.cep,
+          segmento: cp.client.segmento,
+          contato_nome: cp.client.contato_nome,
+          contato_cargo: cp.client.contato_cargo,
+          telefone: cp.client.telefone,
+          whatsapp: cp.client.whatsapp,
+          email: cp.client.email,
+          propostas: cp.propostas,
+          valor_total_cotado: cp.valorTotal,
+        })),
+      };
+      const { data, error } = await supabase.functions.invoke("visit-route-planner", {
+        body: payload,
+      });
+      if (error) throw error;
+      const errorMsg = (data as { error?: string } | null)?.error;
+      if (errorMsg) {
+        toast.error(errorMsg);
+        return;
+      }
+      setRouteText((data as { roteiro?: string } | null)?.roteiro || "Sem retorno do modelo.");
+      setRouteOpen(true);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Falha ao gerar roteiro.";
+      toast.error(message);
+    } finally {
+      setRouteLoading(false);
+    }
+  }
+
 
   return (
     <div className="space-y-4 pl-2 border-l-2 border-primary/30">
@@ -646,6 +770,166 @@ function PatternDetail({ row }: { row: PatternRow }) {
         </div>
       </div>
 
+      {/* Bloco 4.5: regiões + clientes + roteiro IA (prospecção) */}
+      <div className="space-y-3 pt-2 border-t border-border">
+        <div className="flex items-center justify-between">
+          <div className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+            <MapPin className="size-3" />
+            Regiões e clientes deste padrão ({row.clientesDetalhe.length})
+          </div>
+          <Button
+            size="sm"
+            variant="default"
+            onClick={gerarRoteiro}
+            disabled={routeLoading || row.clientesDetalhe.length === 0}
+            className="h-7 text-xs"
+          >
+            {routeLoading ? (
+              <>
+                <Loader2 className="size-3 mr-1.5 animate-spin" /> Gerando…
+              </>
+            ) : (
+              <>
+                <RouteIcon className="size-3 mr-1.5" /> Sugerir roteiro de visitas (IA)
+              </>
+            )}
+          </Button>
+        </div>
+
+        {/* chips de estados e cidades */}
+        <div className="grid md:grid-cols-2 gap-3">
+          <div>
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1.5">Estados</div>
+            <div className="flex flex-wrap gap-1.5">
+              {estados.length === 0 && <span className="text-xs text-muted-foreground">—</span>}
+              {estados.map(([uf, qtd]) => (
+                <Badge key={uf} variant="secondary" className="text-[10px]">
+                  {uf} · {qtd}
+                </Badge>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1.5">Cidades</div>
+            <div className="flex flex-wrap gap-1.5">
+              {cidades.length === 0 && <span className="text-xs text-muted-foreground">—</span>}
+              {cidades.slice(0, 12).map(([cid, qtd]) => (
+                <Badge key={cid} variant="outline" className="text-[10px]">
+                  {cid} · {qtd}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* tabela de clientes com cadastro completo */}
+        {row.clientesDetalhe.length > 0 && (
+          <div className="rounded-md border border-border overflow-hidden">
+            <table className="w-full text-xs">
+              <thead className="bg-muted/40 text-[10px] uppercase tracking-wider text-muted-foreground">
+                <tr>
+                  <th className="text-left px-3 py-1.5 font-medium">Cliente</th>
+                  <th className="text-left px-3 py-1.5 font-medium">Localização</th>
+                  <th className="text-left px-3 py-1.5 font-medium">Contato</th>
+                  <th className="text-left px-3 py-1.5 font-medium">Telefones</th>
+                  <th className="text-right px-3 py-1.5 font-medium">Propostas</th>
+                  <th className="text-right px-3 py-1.5 font-medium">Valor cotado</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {row.clientesDetalhe.map((cp) => {
+                  const c = cp.client;
+                  return (
+                    <tr key={c.id} className="hover:bg-muted/20">
+                      <td className="px-3 py-2 align-top">
+                        <div className="font-medium flex items-center gap-1.5">
+                          <Building2 className="size-3 text-muted-foreground" />
+                          {c.nome}
+                        </div>
+                        {c.razao_social && c.razao_social !== c.nome && (
+                          <div className="text-[10px] text-muted-foreground">{c.razao_social}</div>
+                        )}
+                        {c.segmento && (
+                          <div className="text-[10px] text-muted-foreground">{c.segmento}</div>
+                        )}
+                        {c.cnpj && (
+                          <div className="text-[10px] text-muted-foreground font-mono">{c.cnpj}</div>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 align-top">
+                        {c.cidade || c.estado ? (
+                          <div>
+                            {c.cidade}
+                            {c.cidade && c.estado ? " / " : ""}
+                            {c.estado}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                        {c.endereco && (
+                          <div className="text-[10px] text-muted-foreground">{c.endereco}</div>
+                        )}
+                        {c.cep && <div className="text-[10px] text-muted-foreground">CEP {c.cep}</div>}
+                      </td>
+                      <td className="px-3 py-2 align-top">
+                        {c.contato_nome ? (
+                          <>
+                            <div>{c.contato_nome}</div>
+                            {c.contato_cargo && (
+                              <div className="text-[10px] text-muted-foreground">{c.contato_cargo}</div>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 align-top">
+                        <div className="space-y-0.5">
+                          {c.telefone && (
+                            <div className="flex items-center gap-1">
+                              <Phone className="size-2.5 text-muted-foreground" />
+                              <a href={`tel:${c.telefone}`} className="hover:underline">{c.telefone}</a>
+                            </div>
+                          )}
+                          {c.whatsapp && (
+                            <div className="flex items-center gap-1">
+                              <Phone className="size-2.5 text-success" />
+                              <a
+                                href={`https://wa.me/${c.whatsapp.replace(/\D/g, "")}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="hover:underline"
+                              >
+                                {c.whatsapp}
+                              </a>
+                            </div>
+                          )}
+                          {c.email && (
+                            <div className="flex items-center gap-1">
+                              <Mail className="size-2.5 text-muted-foreground" />
+                              <a href={`mailto:${c.email}`} className="hover:underline">
+                                {c.email}
+                              </a>
+                            </div>
+                          )}
+                          {!c.telefone && !c.whatsapp && !c.email && (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 align-top text-right font-mono">{cp.propostas}</td>
+                      <td className="px-3 py-2 align-top text-right font-mono">
+                        {formatBRL(cp.valorTotal)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       {/* Bloco 5: resumo financeiro */}
       <div className="grid md:grid-cols-4 gap-3 pt-2 border-t border-border">
         <DetailStat label="Ticket médio (proposta)" value={formatBRL(row.ticketMedio)} />
@@ -656,9 +940,25 @@ function PatternDetail({ row }: { row: PatternRow }) {
         />
         <DetailStat label="Valor total cotado" value={formatBRL(row.total)} />
       </div>
+
+      {/* Modal com roteiro IA */}
+      <Dialog open={routeOpen} onOpenChange={setRouteOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RouteIcon className="size-4 text-primary" />
+              Roteiro de visitas — {row.padrao}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="prose prose-sm dark:prose-invert max-w-none mt-2">
+            <ReactMarkdown>{routeText}</ReactMarkdown>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
 
 function DetailStat({
   icon: Icon,
