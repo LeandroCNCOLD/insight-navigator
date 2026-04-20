@@ -31,12 +31,16 @@ D) ANÁLISE TÉCNICA PROFUNDA — para CADA câmara fria descrita, retorne um ob
    - dimensoes: { comprimento_m, largura_m, altura_m, pe_direito_m }
    - volume_m3 (calcule se dimensões existem), area_m2
    - temperatura_alvo_c, temperatura_min_c, temperatura_max_c, umidade_relativa_pct
-   - carga_termica_kcal_h, carga_termica_btu_h, fator_seguranca_pct
+   - carga_termica_kcal_h (REQUERIDA — sempre tente extrair, é fundamental), carga_termica_btu_h, fator_seguranca_pct
    - isolamento: { tipo (PIR/PUR/EPS), espessura_mm, densidade_kg_m3, revestimento }
    - piso: { tipo, isolamento_mm, acabamento }
    - portas: { quantidade, tipo (giro/correr/automática), dimensoes }
    - iluminacao, ralos, antecamara (boolean), pressurizacao
-   - quantidade_unidades (se replicada)
+   - quantidade_unidades (CRÍTICO: quantas câmaras IDÊNTICAS desta dimensão existem na proposta — ex: "3 câmaras de 20×24×6m" → quantidade_unidades=3)
+   - equipamentos_alocados: ARRAY de objetos com { modelo, marca, quantidade (por câmara), capacidade_unitaria_kcal_h, gas, compressor, tipo (Plug In/Split/etc) }
+     * SE a proposta detalhar quais equipamentos vão em qual câmara, popule fielmente.
+     * SE a proposta listar equipamentos só globalmente, distribua proporcionalmente OU repita o mesmo array em todas as câmaras iguais (deixe observação no campo "observacoes" da câmara).
+   - capacidade_total_ofertada_kcal_h: SOMA das (quantidade × capacidade_unitaria_kcal_h) dos equipamentos alocados — sempre calcule.
 
 E) RESUMO DE EQUIPAMENTOS:
    - total_unidades_refrigeracao, total_evaporadores, total_condensadores
@@ -151,6 +155,26 @@ const TOOL_SCHEMA = {
               tipo_porta: { type: ["string", "null"] },
               tem_antecamara: { type: ["boolean", "null"] },
               observacoes: { type: ["string", "null"] },
+              capacidade_total_ofertada_kcal_h: {
+                type: ["number", "null"],
+                description: "Soma de (quantidade × capacidade_unitaria_kcal_h) dos equipamentos alocados nesta câmara.",
+              },
+              equipamentos_alocados: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    modelo: { type: ["string", "null"] },
+                    marca: { type: ["string", "null"] },
+                    tipo: { type: ["string", "null"] },
+                    quantidade: { type: ["integer", "null"], description: "Qtd de equipamentos por câmara desta dimensão." },
+                    capacidade_unitaria_kcal_h: { type: ["number", "null"] },
+                    potencia_hp: { type: ["number", "null"] },
+                    gas: { type: ["string", "null"] },
+                    compressor: { type: ["string", "null"] },
+                  },
+                },
+              },
             },
           },
         },

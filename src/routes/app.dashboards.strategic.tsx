@@ -34,6 +34,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 
+type CamaraEquipAlocado = {
+  modelo?: string;
+  marca?: string;
+  tipo?: string;
+  quantidade?: number;
+  capacidade_unitaria_kcal_h?: number;
+  potencia_hp?: number;
+  gas?: string;
+  compressor?: string;
+};
+
 type CamaraJson = {
   nome?: string;
   largura_m?: number;
@@ -51,6 +62,8 @@ type CamaraJson = {
   quantidade_unidades?: number;
   umidade_relativa_pct?: number;
   carga_termica_kcal_h?: number;
+  capacidade_total_ofertada_kcal_h?: number;
+  equipamentos_alocados?: CamaraEquipAlocado[];
 };
 
 type EquipResumo = {
@@ -148,8 +161,15 @@ type PatternRow = {
   proposalIds: string[];
   // geo + clientes
   clientesDetalhe: ClientPattern[];
-  estados: Record<string, number>; // estado → nº clientes
-  cidades: Record<string, number>; // "Cidade-UF" → nº clientes
+  estados: Record<string, number>;
+  cidades: Record<string, number>;
+  // detalhamento por câmara (por cliente)
+  camarasPorCliente: Array<{
+    clientId: string | null;
+    clientNome: string;
+    proposalId: string;
+    camaras: CamaraJson[];
+  }>;
 };
 
 
@@ -242,6 +262,7 @@ function Strategic() {
           clientesDetalhe: [],
           estados: {},
           cidades: {},
+          camarasPorCliente: [],
         } as PatternRow);
 
       cur.count++;
@@ -266,6 +287,17 @@ function Strategic() {
       camaras.forEach((c) => {
         cur.totalCamarasFisicas += c.quantidade_unidades || 1;
       });
+
+      // Captura câmaras desta proposta para detalhamento por cliente
+      if (camaras.length) {
+        const cli = p.client_id ? clientById.get(p.client_id) : null;
+        cur.camarasPorCliente.push({
+          clientId: p.client_id,
+          clientNome: cli?.nome || "—",
+          proposalId: p.id,
+          camaras,
+        });
+      }
 
       const resumo = p.analise_tecnica_profunda?.equipamentos_resumo;
       const sistemaResumo = resumo?.tipo_sistema;
@@ -702,6 +734,9 @@ function PatternDetail({ row }: { row: PatternRow }) {
         </div>
       </div>
 
+      {/* Bloco 2.5: Detalhamento por câmara (por cliente) — requerida × ofertada × delta */}
+      <CamaraBreakdown row={row} />
+
       {/* Bloco 3: equipamentos detalhados (modelos) */}
       {modelos.length > 0 && (
         <div>
@@ -1036,5 +1071,163 @@ function DistroCard({
         })}
       </div>
     </Card>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Detalhamento por câmara (por cliente) — requerida × ofertada × delta
+// ─────────────────────────────────────────────────────────────────────────────
+function CamaraBreakdown({ row }: { row: PatternRow }) {
+  // Agrupa: cliente → lista de câmaras (com qtd, requerida, equipamentos, ofertada)
+  const grupos = row.camarasPorCliente.filter((g) => g.camaras.length > 0);
+
+  if (grupos.length === 0) {
+    return (
+      <div>
+        <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2 flex items-center gap-1.5">
+          <Snowflake className="size-3" />
+          Detalhamento por câmara
+        </div>
+        <div className="text-xs text-muted-foreground italic">
+          A IA ainda não extraiu o detalhamento por câmara nessas propostas. Reprocesse os documentos
+          em <span className="font-mono">/app/documents</span> para popular câmaras + equipamentos alocados.
+        </div>
+      </div>
+    );
+  }
+
+  // Totais agregados
+  let totalCamarasFisicasReq = 0;
+  let totalRequerida = 0;
+  let totalOfertada = 0;
+  let totalEquipamentosAlocados = 0;
+  grupos.forEach((g) =>
+    g.camaras.forEach((c) => {
+      const qtd = c.quantidade_unidades || 1;
+      totalCamarasFisicasReq += qtd;
+      const req = Number(c.carga_termica_kcal_h) || 0;
+      totalRequerida += req * qtd;
+      const ofertadaUnit =
+        Number(c.capacidade_total_ofertada_kcal_h) ||
+        (c.equipamentos_alocados || []).reduce(
+          (s, e) => s + (Number(e.quantidade) || 0) * (Number(e.capacidade_unitaria_kcal_h) || 0),
+          0,
+        );
+      totalOfertada += ofertadaUnit * qtd;
+      totalEquipamentosAlocados += (c.equipamentos_alocados || []).reduce(
+        (s, e) => s + (Number(e.quantidade) || 0),
+        0,
+      ) * qtd;
+    }),
+  );
+  const deltaTotal = totalOfertada - totalRequerida;
+  const deltaPctTotal = totalRequerida ? (deltaTotal / totalRequerida) * 100 : null;
+
+  return (
+    <div>
+      <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2 flex items-center gap-1.5">
+        <Snowflake className="size-3" />
+        Detalhamento por câmara · {grupos.length} cliente(s) · {totalCamarasFisicasReq} câmara(s) física(s) · {totalEquipamentosAlocados} equipamento(s) alocado(s)
+      </div>
+
+      <div className="grid md:grid-cols-3 gap-2 mb-3">
+        <DetailStat
+          label="Carga requerida (total)"
+          value={totalRequerida ? `${totalRequerida.toLocaleString("pt-BR")} kcal/h` : "—"}
+        />
+        <DetailStat
+          label="Capacidade ofertada (total)"
+          value={totalOfertada ? `${totalOfertada.toLocaleString("pt-BR")} kcal/h` : "—"}
+        />
+        <DetailStat
+          label="Delta (ofertada − requerida)"
+          value={
+            deltaPctTotal != null
+              ? `${deltaTotal >= 0 ? "+" : ""}${deltaTotal.toLocaleString("pt-BR")} kcal/h (${deltaPctTotal >= 0 ? "+" : ""}${deltaPctTotal.toFixed(1)}%)`
+              : "—"
+          }
+        />
+      </div>
+
+      <div className="rounded-md border border-border overflow-hidden">
+        <table className="w-full text-xs">
+          <thead className="bg-muted/40 text-[10px] uppercase tracking-wider text-muted-foreground">
+            <tr>
+              <th className="text-left px-3 py-1.5 font-medium">Cliente / Câmara</th>
+              <th className="text-right px-3 py-1.5 font-medium">Qtd câmaras</th>
+              <th className="text-right px-3 py-1.5 font-medium">Requerida</th>
+              <th className="text-left px-3 py-1.5 font-medium">Equipamentos alocados</th>
+              <th className="text-right px-3 py-1.5 font-medium">Capac. unit.</th>
+              <th className="text-right px-3 py-1.5 font-medium">Ofertada</th>
+              <th className="text-right px-3 py-1.5 font-medium">Δ vs req.</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {grupos.flatMap((g) =>
+              g.camaras.map((c, idx) => {
+                const qtd = c.quantidade_unidades || 1;
+                const req = Number(c.carga_termica_kcal_h) || 0;
+                const equipsArr = c.equipamentos_alocados || [];
+                const ofertada =
+                  Number(c.capacidade_total_ofertada_kcal_h) ||
+                  equipsArr.reduce(
+                    (s, e) => s + (Number(e.quantidade) || 0) * (Number(e.capacidade_unitaria_kcal_h) || 0),
+                    0,
+                  );
+                const delta = ofertada - req;
+                const deltaPct = req ? (delta / req) * 100 : null;
+                const equipsLabel = equipsArr.length
+                  ? equipsArr
+                      .map(
+                        (e) =>
+                          `${e.quantidade || 1}× ${[e.marca, e.modelo].filter(Boolean).join(" ") || e.tipo || "equip."}`,
+                      )
+                      .join(", ")
+                  : "—";
+                const capUnitLabel =
+                  equipsArr.length === 1 && equipsArr[0].capacidade_unitaria_kcal_h
+                    ? `${equipsArr[0].capacidade_unitaria_kcal_h.toLocaleString("pt-BR")} kcal/h`
+                    : equipsArr.length > 1
+                      ? "mista"
+                      : "—";
+                return (
+                  <tr key={`${g.proposalId}-${idx}`}>
+                    <td className="px-3 py-1.5 align-top">
+                      <div className="font-medium">{g.clientNome}</div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {c.nome || `Câmara ${idx + 1}`}
+                        {c.produto_armazenado ? ` · ${c.produto_armazenado}` : ""}
+                      </div>
+                    </td>
+                    <td className="px-3 py-1.5 align-top text-right font-mono">{qtd}</td>
+                    <td className="px-3 py-1.5 align-top text-right font-mono">
+                      {req ? `${req.toLocaleString("pt-BR")} kcal/h` : "—"}
+                    </td>
+                    <td className="px-3 py-1.5 align-top text-[11px]">{equipsLabel}</td>
+                    <td className="px-3 py-1.5 align-top text-right font-mono">{capUnitLabel}</td>
+                    <td className="px-3 py-1.5 align-top text-right font-mono">
+                      {ofertada ? `${ofertada.toLocaleString("pt-BR")} kcal/h` : "—"}
+                    </td>
+                    <td
+                      className={`px-3 py-1.5 align-top text-right font-mono ${
+                        deltaPct == null
+                          ? "text-muted-foreground"
+                          : delta >= 0
+                            ? "text-success"
+                            : "text-destructive"
+                      }`}
+                    >
+                      {deltaPct != null
+                        ? `${delta >= 0 ? "+" : ""}${deltaPct.toFixed(0)}%`
+                        : "—"}
+                    </td>
+                  </tr>
+                );
+              }),
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
