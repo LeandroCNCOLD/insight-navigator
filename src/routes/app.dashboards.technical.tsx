@@ -501,10 +501,27 @@ function Tech() {
 }
 
 function ModelDetail({ group }: { group: ModelGroup }) {
+  // Build seed points from occurrences with both temp and unit capacity available
+  const seedPoints = group.occurrences
+    .filter((o) => o.tempEvap != null && o.capacidadeUnitaria != null && o.capacidadeUnitaria > 0)
+    .map((o) => ({
+      marca: group.marca,
+      modelo: group.modelo,
+      gas_refrigerante: o.gas_refrigerante,
+      temp_evaporacao_c: o.tempEvap as number,
+      capacidade_kcal_h: o.capacidadeUnitaria as number,
+      potencia_hp: o.potencia_hp,
+      proposal_id: o.proposal_id,
+    }));
+
   return (
     <div className="space-y-4">
       <div className="grid md:grid-cols-4 gap-3 text-xs">
-        <Stat icon={Gauge} label="Capacidade frigorífica" value={rangeFull(group.capacidadeKcal, "kcal/h")} />
+        <Stat
+          icon={Gauge}
+          label="Capacidade unitária"
+          value={rangeFull(group.capacidadeKcalUnit, "kcal/h")}
+        />
         <Stat icon={Zap} label="Potência" value={rangeFull(group.potenciaHp, "HP")} />
         <Stat
           icon={Thermometer}
@@ -517,12 +534,8 @@ function ModelDetail({ group }: { group: ModelGroup }) {
         />
         <Stat
           icon={Snowflake}
-          label="Carga térmica média"
-          value={
-            group.cargasTermicas
-              ? `${group.cargasTermicas.avg.toFixed(0)} kcal/h (${group.cargasTermicas.min.toFixed(0)}–${group.cargasTermicas.max.toFixed(0)})`
-              : "—"
-          }
+          label="Capacidade total acumulada"
+          value={rangeFull(group.capacidadeKcal, "kcal/h")}
         />
       </div>
 
@@ -556,6 +569,12 @@ function ModelDetail({ group }: { group: ModelGroup }) {
         </div>
       </div>
 
+      <EquipmentCapacityCurve
+        marca={group.marca}
+        modelo={group.modelo}
+        seedFromProposals={seedPoints}
+      />
+
       <div>
         <h4 className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium mb-2">
           Ocorrências em propostas ({group.occurrences.length})
@@ -568,7 +587,9 @@ function ModelDetail({ group }: { group: ModelGroup }) {
                 <th className="text-left py-1.5 pr-3">Cliente</th>
                 <th className="text-left py-1.5 pr-3">Concorrente</th>
                 <th className="text-right py-1.5 pr-3">Qtd</th>
-                <th className="text-left py-1.5 pr-3">Capac.</th>
+                <th className="text-left py-1.5 pr-3">Capac. unit.</th>
+                <th className="text-left py-1.5 pr-3">Capac. total</th>
+                <th className="text-left py-1.5 pr-3">Temp °C</th>
                 <th className="text-left py-1.5 pr-3">HP</th>
                 <th className="text-left py-1.5 pr-3">Gás</th>
                 <th className="text-right py-1.5">Valor unit.</th>
@@ -591,8 +612,14 @@ function ModelDetail({ group }: { group: ModelGroup }) {
                   </td>
                   <td className="py-1.5 pr-3 text-right font-mono">{o.quantidade ?? 1}</td>
                   <td className="py-1.5 pr-3">
-                    {o.capacidade_kcal ? `${o.capacidade_kcal} kcal/h` : "—"}
+                    {o.capacidadeUnitaria
+                      ? `${o.capacidadeUnitaria.toLocaleString("pt-BR")} kcal/h`
+                      : "—"}
                   </td>
+                  <td className="py-1.5 pr-3 text-muted-foreground">
+                    {o.capacidade_kcal ? `${Number(o.capacidade_kcal).toLocaleString("pt-BR")} kcal/h` : "—"}
+                  </td>
+                  <td className="py-1.5 pr-3">{o.tempEvap != null ? `${o.tempEvap}°C` : "—"}</td>
                   <td className="py-1.5 pr-3">{o.potencia_hp ? `${o.potencia_hp} HP` : "—"}</td>
                   <td className="py-1.5 pr-3">{o.gas_refrigerante || "—"}</td>
                   <td className="py-1.5 text-right">
