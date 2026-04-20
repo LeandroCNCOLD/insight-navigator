@@ -318,7 +318,10 @@ Deno.serve(async (req) => {
       .eq("id", documentId)
       .maybeSingle();
     if (docErr || !doc) throw new Error("Documento não encontrado");
-    if (doc.owner_id !== userRes.user.id) throw new Error("Sem permissão");
+    if (doc.owner_id !== userRes.user.id) {
+      const { data: isAdmin } = await admin.rpc("has_role", { _user_id: userRes.user.id, _role: "admin" });
+      if (!isAdmin) throw new Error("Sem permissão");
+    }
 
     // Self-healing: if raw_text missing, OCR via Gemini Vision through the Lovable AI gateway
     let rawText = doc.raw_text || "";
