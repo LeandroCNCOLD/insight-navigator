@@ -1,43 +1,91 @@
 
 
-## Passo 1 — Criar a tabela `proposal_review_events` (migração)
+# Base CN Code + Análise Head-to-Head com Concorrentes
+
+Hoje o sistema trata todo upload como vindo de um concorrente (default "Conela"). Vou introduzir o conceito de **propostas da casa (CN Code)** separadas das **propostas de concorrentes**, e cruzar as duas bases por cliente para descobrir onde a CN Code disputou (e perdeu/ganhou) contra cada concorrente — com explicação do porquê.
+
+## O que muda
+
+### 1. Marcar a CN Code como "casa" no cadastro
+
+- Adicionar coluna `is_house boolean default false` em `competitors`.
+- Seed automático: garantir um registro `competitors` com `nome = 'CN Code'` e `is_house = true` por owner (criado on-demand quando o usuário entrar em `/app/upload/cncode` pela primeira vez).
+- Toda análise de "concorrência" passa a excluir `is_house = true` da lista de concorrentes.
+
+### 2. Rota de upload dedicada `/app/upload/cncode`
+
+- Novo arquivo `src/routes/app.upload.cncode.tsx` (mesmo dropzone do upload atual, mas com header verde "Propostas CN Code" e uma flag `kind: "house"` no item da fila).
+- Reaproveita 100% do `uploadQueue`, mas com um novo método `addHouse(files)` que marca os items para forçar `competitor_id = <CN Code id>` ao salvar a proposta — ignorando o fabricante detectado pela IA.
+- Item de menu novo na sidebar, seção "Documentos": **"Upload CN Code"** (ícone destacado).
+- O `/app/upload` atual continua existindo para concorrentes (renomeado para "Upload Concorrentes").
+
+### 3. Pasta da CN Code (`/app/competitors/CN%20Code`)
+
+Já funciona pela rota existente `app.competitors.$nome.tsx` — vai listar automaticamente todos os documentos da casa, padrões técnicos, gases, compressores, valor médio etc. Sem código novo.
+
+### 4. Nova rota `/app/dashboards/head-to-head` — o coração do pedido
+
+Tela "Onde disputamos e o que aconteceu". Para cada cliente que aparece **tanto** em propostas CN Code **quanto** em propostas de algum concorrente:
+
+- Linha por cliente com: nome, UF, concorrente(s) que também propuseram, valor CN Code vs valor concorrente, delta %, status conhecido (ganhamos / perdemos / indefinido).
+- Drill-down: comparação lado a lado da proposta CN Code × proposta do concorrente (mesma estrutura do `/app/compare` atual, mas pré-pareada).
+- **Explicação automática** gerada pelo `assistant-chat`/`market-intelligence` engine: "por que provavelmente perdemos para X neste cliente" — usa diferenças de preço, prazo, garantia, equipamentos, condições de pagamento.
+
+Filtros: por concorrente, por UF, por faixa de valor, por status (ganhamos/perdemos).
+
+### 5. Reforço na Inteligência de Mercado
+
+`/app/market` ganha um modo "CN Code vs mercado": KPIs comparativos (ticket médio nosso × concorrência, prazo médio nosso × deles, gases preferidos, padrão de garantia), além das perguntas sugeridas atuais.
+
+### 6. Seed e migração de dados existentes
+
+- Migração SQL: adiciona `is_house`, cria/atualiza CN Code como `is_house=true`.
+- Não mexe em propostas já carregadas (continuam atribuídas ao concorrente original).
+
+## Detalhes técnicos
+
+**Migração**
 
 ```sql
-CREATE TABLE public.proposal_review_events (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  proposal_id uuid NOT NULL REFERENCES public.proposals(id) ON DELETE CASCADE,
-  document_id uuid REFERENCES public.documents(id) ON DELETE SET NULL,
-  action text NOT NULL CHECK (action IN ('field_update','approve','reject','request_reprocess','comment')),
-  field_name text,
-  old_value jsonb,
-  new_value jsonb,
-  comment text,
-  created_by uuid,
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-CREATE INDEX ON public.proposal_review_events (proposal_id, created_at DESC);
-ALTER TABLE public.proposal_review_events ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "auth read events" ON public.proposal_review_events FOR SELECT TO authenticated USING (true);
-CREATE POLICY "auth insert events" ON public.proposal_review_events FOR INSERT TO authenticated WITH CHECK (true);
+ALTER TABLE public.competitors
+  ADD COLUMN IF NOT EXISTS is_house boolean NOT NULL DEFAULT false;
+
+-- Garantir CN Code marcada como casa quando já existir
+UPDATE public.competitors SET is_house = true WHERE lower(nome) = 'cn code';
 ```
 
-Depois disso o `types.ts` é regenerado automaticamente e os 8 erros do `review-center.ts` somem.
+(Criação on-demand do registro CN Code por owner é feita no front quando entra em `/app/upload/cncode`, igual ao fallback "Conela" de hoje.)
 
-## Passo 2 — Ajustar `src/routes/app.review.tsx`
+**Upload Queue — extensão**
 
-Trocar nos 4 pontos:
-- `subtitle={...}` → `description={...}` (linhas 128, 140, 145, 160)
-- `actions={...}` → `action={...}` (linha 161)
+Em `src/lib/upload-queue.ts`:
 
-## Passo 3 — Pequeno ajuste de tipo em `review-center.ts`
+- Tipo `QueueItem` ganha `houseCompetitorId?: string`.
+- Novo `addHouse(files, houseId)` que inclui `houseCompetitorId` em cada item.
+- Em `processOne`, quando `it.houseCompetitorId` existe, pular toda a heurística de fabricante e usar esse id direto (`competitorId = it.houseCompetitorId`).
 
-Em `updateProposalField`, trocar `const patch = { [fieldName]: newValue } as Record<string, unknown>;` por `const patch: any = { [fieldName]: newValue };` para satisfazer o tipo estrito de update do supabase-js.
+**Pareamento head-to-head (front)**
 
-## Resultado
+Query única: `proposals` com `client_id`, `competitor_id`, `valor_total`, `status_proposta`, `dados_tecnicos`, `prazo_entrega_dias`, `garantia_meses` + join `competitors(is_house)` + `clients(nome,estado)`.
 
-- 8 erros de TS sumirão após a migração regenerar `types.ts`.
-- 4 erros do `app.review.tsx` sumirão com o rename de props.
-- Funcionalidade de Central de Revisão (auditoria, aprovar/rejeitar/reprocessar com histórico) passa a funcionar de fato.
+No cliente, agrupar por `client_id` e separar por `is_house`. Cliente entra na tela quando tem ≥1 proposta house **e** ≥1 proposta não-house.
 
-**Resposta direta à sua pergunta:** as edições do GitHub adicionaram código novo (Central de Revisão) mas **não vieram acompanhadas da migração da tabela** nem do alinhamento das props dos componentes existentes — por isso o build quebrou. Os 3 passos acima fecham o ciclo.
+**Explicação por IA**
+
+Reusar a edge function `market-intelligence` passando contexto resumido das duas propostas pareadas + pergunta canônica: "Compare estas duas propostas para o mesmo cliente e explique provável motivo de decisão". Resposta cacheada em `proposal_review_events` (já existente) com `action='comment'`.
+
+**Arquivos novos / alterados**
+
+- migração SQL — adiciona `is_house`
+- `src/routes/app.upload.cncode.tsx` (novo)
+- `src/routes/app.dashboards.head-to-head.tsx` (novo)
+- `src/lib/upload-queue.ts` — adiciona `addHouse` + `houseCompetitorId`
+- `src/components/app-shell.tsx` — novos itens de menu ("Upload CN Code" e "Head-to-Head")
+- `src/lib/changelog.ts` — bump versão (v1.6.0)
+
+## Fora do escopo (posso fazer depois se quiser)
+
+- Marcar manualmente "ganhamos/perdemos" por proposta (hoje vem só do `status_proposta` extraído).
+- Importação em lote de propostas CN Code via ZIP/pasta.
+- Relatório PDF do head-to-head por cliente.
 
