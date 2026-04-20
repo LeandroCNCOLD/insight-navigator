@@ -288,6 +288,17 @@ function Strategic() {
         cur.totalCamarasFisicas += c.quantidade_unidades || 1;
       });
 
+      // Captura câmaras desta proposta para detalhamento por cliente
+      if (camaras.length) {
+        const cli = p.client_id ? clientById.get(p.client_id) : null;
+        cur.camarasPorCliente.push({
+          clientId: p.client_id,
+          clientNome: cli?.nome || "—",
+          proposalId: p.id,
+          camaras,
+        });
+      }
+
       const resumo = p.analise_tecnica_profunda?.equipamentos_resumo;
       const sistemaResumo = resumo?.tipo_sistema;
       const equips = equipByProposal.get(p.id) || [];
