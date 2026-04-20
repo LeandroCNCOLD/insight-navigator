@@ -21,6 +21,7 @@ export const Route = createFileRoute("/app/documents/")({
 function DocsList() {
   const [q, setQ] = useState("");
   const [fab, setFab] = useState<string>("__all__");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [queue, setQueue] = useState<QueueItem[]>([]);
   useEffect(() => {
     const unsub = uploadQueue.subscribe(setQueue);
