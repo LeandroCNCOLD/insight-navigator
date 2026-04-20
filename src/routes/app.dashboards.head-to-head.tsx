@@ -403,16 +403,33 @@ function HeadToHeadPage() {
           </div>
         )}
         <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1 rounded-md border bg-background p-1">
+            <span className="text-[11px] uppercase tracking-wider text-muted-foreground px-2">Resultado CN Cold:</span>
+            {(["ganhou", "perdeu", "em_aberto"] as const).map((r) => (
+              <Button
+                key={r}
+                size="sm"
+                variant={manualResultado === r ? "default" : "ghost"}
+                className="h-7 text-xs"
+                onClick={() => setManualResultado(r)}
+              >
+                {r === "ganhou" ? "✅ Ganhou" : r === "perdeu" ? "❌ Perdeu" : "⏳ Em aberto"}
+              </Button>
+            ))}
+          </div>
           <Button onClick={explainManual} disabled={!manualHouse || !manualRival || manualLoading}>
             {manualLoading ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Sparkles className="size-4 mr-2" />}
             Analisar par com IA
           </Button>
           {(manualHouseId || manualRivalId) && (
-            <Button variant="ghost" size="sm" onClick={() => { setManualHouseId(""); setManualRivalId(""); setManualExplain(null); }}>
+            <Button variant="ghost" size="sm" onClick={() => { setManualHouseId(""); setManualRivalId(""); setManualExplain(null); setManualComparison(null); }}>
               Limpar seleção
             </Button>
           )}
         </div>
+        {manualComparison && (
+          <ComparisonCharts comparison={manualComparison} houseLabel="CN Cold" rivalLabel={manualRival?.competitor?.nome || "Concorrente"} />
+        )}
         {manualExplain && (
           <div className="rounded-md border bg-background/60 p-4 prose prose-sm dark:prose-invert max-w-none">
             <ReactMarkdown>{manualExplain}</ReactMarkdown>
