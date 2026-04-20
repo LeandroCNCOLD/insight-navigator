@@ -90,8 +90,31 @@ function HeadToHeadPage() {
 
   const q = useQuery({ queryKey: ["head-to-head"], queryFn: fetchHeadToHead });
 
+  const pairs = q.data?.pairs || [];
+  const allRows = q.data?.allRows || [];
+  const houseRows = useMemo(() => allRows.filter((r) => r.competitor?.is_house), [allRows]);
+  const rivalRows = useMemo(() => allRows.filter((r) => !r.competitor?.is_house), [allRows]);
+
+  const [manualHouseId, setManualHouseId] = useState("");
+  const [manualRivalId, setManualRivalId] = useState("");
+  const [manualSearch, setManualSearch] = useState("");
+  const [manualExplain, setManualExplain] = useState<string | null>(null);
+  const [manualLoading, setManualLoading] = useState(false);
+
+  const matchesQuery = (r: Row, q: string) => {
+    if (!q) return true;
+    const t = q.toLowerCase();
+    return [r.numero, r.client?.nome, r.client?.estado, r.client?.cnpj, r.competitor?.nome]
+      .filter(Boolean)
+      .some((v) => String(v).toLowerCase().includes(t));
+  };
+  const houseFiltered = houseRows.filter((r) => matchesQuery(r, manualSearch));
+  const rivalFiltered = rivalRows.filter((r) => matchesQuery(r, manualSearch));
+  const manualHouse = houseRows.find((r) => r.id === manualHouseId) || null;
+  const manualRival = rivalRows.find((r) => r.id === manualRivalId) || null;
+
   const filtered = useMemo(() => {
-    const list = q.data || [];
+    const list = pairs;
     const s = search.trim().toLowerCase();
     if (!s) return list;
     return list.filter(
@@ -100,7 +123,7 @@ function HeadToHeadPage() {
         p.estado.toLowerCase().includes(s) ||
         p.rivals.some((r) => r.competitor?.nome?.toLowerCase().includes(s)),
     );
-  }, [q.data, search]);
+  }, [pairs, search]);
 
   async function runGlobalAI() {
     setAiLoading(true);
