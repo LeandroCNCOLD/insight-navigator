@@ -29,7 +29,7 @@ type Row = {
   numero: string | null;
   data_proposta: string | null;
   dados_tecnicos: any;
-  client: { nome: string | null; estado: string | null } | null;
+  client: { nome: string | null; estado: string | null; cnpj: string | null } | null;
   competitor: { nome: string | null; is_house: boolean | null } | null;
 };
 
