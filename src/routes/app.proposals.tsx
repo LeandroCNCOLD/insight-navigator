@@ -54,7 +54,7 @@ function Proposals() {
   const filtered = useMemo(() => filterByOrigin((data || []) as any[], origin), [data, origin]);
 
   async function updateResult(id: string, fields: Record<string, any>) {
-    const { error } = await supabase.from("proposals").update(fields).eq("id", id);
+    const { error } = await supabase.from("proposals").update(fields as any).eq("id", id);
     if (error) { toast.error(error.message); return; }
     qc.invalidateQueries({ queryKey: ["proposals"] });
     toast.success("Atualizado");
