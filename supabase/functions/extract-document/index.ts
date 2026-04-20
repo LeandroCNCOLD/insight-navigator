@@ -418,17 +418,31 @@ function validateExtraction(extracted: any, sourceText: string) {
     return { valid: false, reason: "IA não encontrou dados úteis suficientes" };
   }
 
+  const norm = (s: string) =>
+    s
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]/g, "");
+
   if (cliente) {
-    const compactClient = cliente.toLowerCase().replace(/\s+/g, "");
-    const compactText = text.replace(/\s+/g, "");
-    if (compactClient.length >= 6 && !compactText.includes(compactClient)) {
+    const compactClient = norm(cliente);
+    const compactText = norm(text);
+    // Tolerate AI reordering / abbreviations: accept when full string is present
+    // OR when any significant word (>=4 chars) of the client name appears.
+    const significantTokens = cliente
+      .split(/\s+/)
+      .map((t) => norm(t))
+      .filter((t) => t.length >= 4);
+    const anyWordHit = significantTokens.some((t) => compactText.includes(t));
+    if (compactClient.length >= 6 && !compactText.includes(compactClient) && !anyWordHit) {
       return { valid: false, reason: "Nome do cliente não aparece no texto fonte" };
     }
   }
 
   if (numero) {
-    const compactNumber = numero.toLowerCase().replace(/\s+/g, "");
-    const compactText = text.replace(/\s+/g, "");
+    const compactNumber = norm(numero);
+    const compactText = norm(text);
     if (compactNumber.length >= 4 && !compactText.includes(compactNumber) && evidenceCount < 2) {
       return { valid: false, reason: "Número da proposta sem evidência suficiente" };
     }
