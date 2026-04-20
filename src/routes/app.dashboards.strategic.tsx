@@ -770,7 +770,214 @@ function PatternDetail({ row }: { row: PatternRow }) {
         </div>
       </div>
 
+      {/* Bloco 4.5: regiões + clientes + roteiro IA (prospecção) */}
+      <div className="space-y-3 pt-2 border-t border-border">
+        <div className="flex items-center justify-between">
+          <div className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+            <MapPin className="size-3" />
+            Regiões e clientes deste padrão ({row.clientesDetalhe.length})
+          </div>
+          <Button
+            size="sm"
+            variant="default"
+            onClick={gerarRoteiro}
+            disabled={routeLoading || row.clientesDetalhe.length === 0}
+            className="h-7 text-xs"
+          >
+            {routeLoading ? (
+              <>
+                <Loader2 className="size-3 mr-1.5 animate-spin" /> Gerando…
+              </>
+            ) : (
+              <>
+                <RouteIcon className="size-3 mr-1.5" /> Sugerir roteiro de visitas (IA)
+              </>
+            )}
+          </Button>
+        </div>
+
+        {/* chips de estados e cidades */}
+        <div className="grid md:grid-cols-2 gap-3">
+          <div>
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1.5">Estados</div>
+            <div className="flex flex-wrap gap-1.5">
+              {estados.length === 0 && <span className="text-xs text-muted-foreground">—</span>}
+              {estados.map(([uf, qtd]) => (
+                <Badge key={uf} variant="secondary" className="text-[10px]">
+                  {uf} · {qtd}
+                </Badge>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1.5">Cidades</div>
+            <div className="flex flex-wrap gap-1.5">
+              {cidades.length === 0 && <span className="text-xs text-muted-foreground">—</span>}
+              {cidades.slice(0, 12).map(([cid, qtd]) => (
+                <Badge key={cid} variant="outline" className="text-[10px]">
+                  {cid} · {qtd}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* tabela de clientes com cadastro completo */}
+        {row.clientesDetalhe.length > 0 && (
+          <div className="rounded-md border border-border overflow-hidden">
+            <table className="w-full text-xs">
+              <thead className="bg-muted/40 text-[10px] uppercase tracking-wider text-muted-foreground">
+                <tr>
+                  <th className="text-left px-3 py-1.5 font-medium">Cliente</th>
+                  <th className="text-left px-3 py-1.5 font-medium">Localização</th>
+                  <th className="text-left px-3 py-1.5 font-medium">Contato</th>
+                  <th className="text-left px-3 py-1.5 font-medium">Telefones</th>
+                  <th className="text-right px-3 py-1.5 font-medium">Propostas</th>
+                  <th className="text-right px-3 py-1.5 font-medium">Valor cotado</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {row.clientesDetalhe.map((cp) => {
+                  const c = cp.client;
+                  return (
+                    <tr key={c.id} className="hover:bg-muted/20">
+                      <td className="px-3 py-2 align-top">
+                        <div className="font-medium flex items-center gap-1.5">
+                          <Building2 className="size-3 text-muted-foreground" />
+                          {c.nome}
+                        </div>
+                        {c.razao_social && c.razao_social !== c.nome && (
+                          <div className="text-[10px] text-muted-foreground">{c.razao_social}</div>
+                        )}
+                        {c.segmento && (
+                          <div className="text-[10px] text-muted-foreground">{c.segmento}</div>
+                        )}
+                        {c.cnpj && (
+                          <div className="text-[10px] text-muted-foreground font-mono">{c.cnpj}</div>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 align-top">
+                        {c.cidade || c.estado ? (
+                          <div>
+                            {c.cidade}
+                            {c.cidade && c.estado ? " / " : ""}
+                            {c.estado}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                        {c.endereco && (
+                          <div className="text-[10px] text-muted-foreground">{c.endereco}</div>
+                        )}
+                        {c.cep && <div className="text-[10px] text-muted-foreground">CEP {c.cep}</div>}
+                      </td>
+                      <td className="px-3 py-2 align-top">
+                        {c.contato_nome ? (
+                          <>
+                            <div>{c.contato_nome}</div>
+                            {c.contato_cargo && (
+                              <div className="text-[10px] text-muted-foreground">{c.contato_cargo}</div>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 align-top">
+                        <div className="space-y-0.5">
+                          {c.telefone && (
+                            <div className="flex items-center gap-1">
+                              <Phone className="size-2.5 text-muted-foreground" />
+                              <a href={`tel:${c.telefone}`} className="hover:underline">{c.telefone}</a>
+                            </div>
+                          )}
+                          {c.whatsapp && (
+                            <div className="flex items-center gap-1">
+                              <Phone className="size-2.5 text-success" />
+                              <a
+                                href={`https://wa.me/${c.whatsapp.replace(/\D/g, "")}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="hover:underline"
+                              >
+                                {c.whatsapp}
+                              </a>
+                            </div>
+                          )}
+                          {c.email && (
+                            <div className="flex items-center gap-1">
+                              <Mail className="size-2.5 text-muted-foreground" />
+                              <a href={`mailto:${c.email}`} className="hover:underline">
+                                {c.email}
+                              </a>
+                            </div>
+                          )}
+                          {!c.telefone && !c.whatsapp && !c.email && (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 align-top text-right font-mono">{cp.propostas}</td>
+                      <td className="px-3 py-2 align-top text-right font-mono">
+                        {formatBRL(cp.valorTotal)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       {/* Bloco 5: resumo financeiro */}
+      <div className="grid md:grid-cols-4 gap-3 pt-2 border-t border-border">
+        <DetailStat label="Ticket médio (proposta)" value={formatBRL(row.ticketMedio)} />
+        <DetailStat label="Valor médio / câmara física" value={formatBRL(row.valorMedioPorCamara)} />
+        <DetailStat
+          label="Valor médio / equipamento"
+          value={row.valorMedioPorEquipamento ? formatBRL(row.valorMedioPorEquipamento) : "Sem preço unitário"}
+        />
+        <DetailStat label="Valor total cotado" value={formatBRL(row.total)} />
+      </div>
+
+      {/* Modal com roteiro IA */}
+      <Dialog open={routeOpen} onOpenChange={setRouteOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RouteIcon className="size-4 text-primary" />
+              Roteiro de visitas — {row.padrao}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="prose prose-sm dark:prose-invert max-w-none mt-2">
+            <ReactMarkdown>{routeText}</ReactMarkdown>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function PatternDetailFinanceClose() {
+  // sentinel — kept for layout safety
+  return null;
+}
+
+function _PatternDetailLegacy({ row }: { row: PatternRow }) {
+  return (
+    <div className="space-y-4 pl-2 border-l-2 border-primary/30">
+      {/* Bloco 5: resumo financeiro */}
+      <div className="grid md:grid-cols-4 gap-3 pt-2 border-t border-border">
+        <DetailStat label="Ticket médio (proposta)" value={formatBRL(row.ticketMedio)} />
+        <DetailStat label="Valor médio / câmara física" value={formatBRL(row.valorMedioPorCamara)} />
+        <DetailStat
+          label="Valor médio / equipamento"
+          value={row.valorMedioPorEquipamento ? formatBRL(row.valorMedioPorEquipamento) : "Sem preço unitário"}
+        />
+        <DetailStat label="Valor total cotado" value={formatBRL(row.total)} />
+      </div>
+
       <div className="grid md:grid-cols-4 gap-3 pt-2 border-t border-border">
         <DetailStat label="Ticket médio (proposta)" value={formatBRL(row.ticketMedio)} />
         <DetailStat label="Valor médio / câmara física" value={formatBRL(row.valorMedioPorCamara)} />
