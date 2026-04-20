@@ -246,7 +246,11 @@ function HeadToHeadPage() {
     <div className="p-6 space-y-6">
       <PageHeader
         title="Head-to-Head CN Cold × Concorrentes"
-        description={`${filtered.length} cliente(s) onde a CN Cold disputou contra ao menos um concorrente. Compare valor, prazo, garantia e gere explicação automática.`}
+        description={
+          filtered.length
+            ? `${filtered.length} cliente(s) com confronto automático por CNPJ. Você também pode parear propostas manualmente abaixo.`
+            : "Selecione manualmente uma proposta CN Cold e uma do concorrente para comparar — ou gere a análise automática por CNPJ."
+        }
         action={
           <Link to="/app/upload/cncode">
             <Button variant="outline">Subir mais CN Cold</Button>
@@ -290,13 +294,88 @@ function HeadToHeadPage() {
         )}
       </Card>
 
-      <Card className="p-4">
+      <Card className="p-5 space-y-3">
+        <div className="flex items-start gap-3">
+          <div className="rounded-md bg-success/10 p-2"><Swords className="size-5 text-success" /></div>
+          <div>
+            <div className="font-semibold">Pareamento manual</div>
+            <div className="text-xs text-muted-foreground max-w-2xl">
+              Busque por número da proposta, nome do cliente ou CNPJ. Selecione uma proposta da CN Cold e uma do concorrente — a IA gera a análise comparativa do par.
+            </div>
+          </div>
+        </div>
         <Input
-          placeholder="Filtrar por cliente, UF ou concorrente…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar por nº proposta, cliente, CNPJ, UF ou concorrente…"
+          value={manualSearch}
+          onChange={(e) => setManualSearch(e.target.value)}
         />
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="rounded-md border border-l-4 border-l-success bg-background p-2 space-y-1">
+            <div className="text-[11px] uppercase tracking-wider text-muted-foreground px-1">Proposta CN Cold</div>
+            <select
+              className="h-9 w-full rounded-md border bg-background px-2 text-sm"
+              value={manualHouseId}
+              onChange={(e) => setManualHouseId(e.target.value)}
+            >
+              <option value="">— Selecione —</option>
+              {houseFiltered.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {(r.client?.nome || "Cliente")} · {r.numero || r.id.slice(0, 6)} · {r.client?.estado || "UF"} · {formatBRL(r.valor_total)}{r.client?.cnpj ? ` · CNPJ ${r.client.cnpj}` : ""}
+                </option>
+              ))}
+            </select>
+            <div className="text-[11px] text-muted-foreground px-1">{houseFiltered.length} disponível(is)</div>
+          </div>
+          <div className="rounded-md border border-l-4 border-l-primary bg-background p-2 space-y-1">
+            <div className="text-[11px] uppercase tracking-wider text-muted-foreground px-1">Proposta Concorrente</div>
+            <select
+              className="h-9 w-full rounded-md border bg-background px-2 text-sm"
+              value={manualRivalId}
+              onChange={(e) => setManualRivalId(e.target.value)}
+            >
+              <option value="">— Selecione —</option>
+              {rivalFiltered.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {(r.competitor?.nome || "Concorrente")} · {r.client?.nome || "Cliente"} · {r.numero || r.id.slice(0, 6)} · {formatBRL(r.valor_total)}{r.client?.cnpj ? ` · CNPJ ${r.client.cnpj}` : ""}
+                </option>
+              ))}
+            </select>
+            <div className="text-[11px] text-muted-foreground px-1">{rivalFiltered.length} disponível(is)</div>
+          </div>
+        </div>
+        {manualHouse && manualRival && (
+          <div className="grid gap-3 md:grid-cols-2">
+            <PropBox label="CN Cold" tone="house" row={manualHouse} />
+            <PropBox label={manualRival.competitor?.nome || "Concorrente"} tone="rival" row={manualRival} />
+          </div>
+        )}
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button onClick={explainManual} disabled={!manualHouse || !manualRival || manualLoading}>
+            {manualLoading ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Sparkles className="size-4 mr-2" />}
+            Analisar par com IA
+          </Button>
+          {(manualHouseId || manualRivalId) && (
+            <Button variant="ghost" size="sm" onClick={() => { setManualHouseId(""); setManualRivalId(""); setManualExplain(null); }}>
+              Limpar seleção
+            </Button>
+          )}
+        </div>
+        {manualExplain && (
+          <div className="rounded-md border bg-background/60 p-4 prose prose-sm dark:prose-invert max-w-none">
+            <ReactMarkdown>{manualExplain}</ReactMarkdown>
+          </div>
+        )}
       </Card>
+
+      {filtered.length > 0 && (
+        <Card className="p-4">
+          <Input
+            placeholder="Filtrar confrontos automáticos por cliente, UF ou concorrente…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </Card>
+      )}
 
       <div className="space-y-4">
         {filtered.map((pair) => (
