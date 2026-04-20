@@ -126,6 +126,25 @@ function Geo() {
     content: string;
   }>({ open: false, title: "", loading: false, content: "" });
 
+  // Calculadora / premissas de viagem
+  const [premissasOpen, setPremissasOpen] = useState(false);
+  const [pendingScope, setPendingScope] = useState<
+    { type: "state"; key: string } | { type: "city"; key: string } | null
+  >(null);
+  const [premissas, setPremissas] = useState({
+    origem: "São Paulo - SP",
+    veiculo: "Carro sedan",
+    consumoKmL: 12,
+    precoCombustivel: 6.0,
+    pedagioPor100km: 25,
+    diariaHotel: 280,
+    refeicoesDia: 120,
+    visitasPorDia: 2,
+    maxVisitas: 10,
+    diasDisponiveis: 5,
+    janela: "Próximas 4 semanas",
+  });
+
   const { data, isLoading } = useQuery({
     queryKey: ["dash-geo-v2"],
     queryFn: async () => {
