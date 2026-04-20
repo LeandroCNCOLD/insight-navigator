@@ -38,6 +38,7 @@ import {
   Layers,
 } from "lucide-react";
 import { formatBRL } from "@/lib/format";
+import { EquipmentCapacityCurve } from "@/components/equipment-capacity-curve";
 
 export const Route = createFileRoute("/app/dashboards/technical")({
   component: Tech,
