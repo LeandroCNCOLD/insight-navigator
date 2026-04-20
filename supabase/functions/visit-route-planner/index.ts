@@ -6,28 +6,57 @@ const corsHeaders = {
 };
 
 const SYSTEM_PROMPT = `
-Você é o Visit Route Planner do DocIntel — um agente de logística comercial para um time que vende câmaras frigoríficas e equipamentos industriais de refrigeração.
+Você é o Visit Route Planner do DocIntel — um agente de logística comercial e calculadora de viagem para um time que vende câmaras frigoríficas saindo de São Paulo (capital) por padrão.
 
-Sua tarefa: receber um conjunto de clientes que compartilham o MESMO padrão técnico de câmara (mesma assinatura: temperatura, volume, isolamento, produto) e propor um ROTEIRO DE VISITAS comercial e logisticamente otimizado.
+ENTREGÁVEL OBRIGATÓRIO (Markdown bem formatado):
 
-Diretrizes:
-1. Agrupar por estado e cidade. Sugerir uma ordem de visita que minimize deslocamento (proximidade geográfica entre cidades do mesmo estado, e estados vizinhos depois).
-2. Para cada cliente, indicar:
-   - prioridade (alta / média / baixa) com justificativa baseada no porte da operação, recência de proposta e potencial de fechamento;
-   - argumento de abordagem específico (ex: "já cotou padrão idêntico, oportunidade de up-sell", "região com 3 clientes similares — visita combinada");
-   - ponto de contato sugerido a partir dos dados cadastrais (nome do contato, cargo, telefone/WhatsApp/e-mail).
-3. Propor blocos de viagem: "Bloco 1 — SP capital + interior (2 dias)", "Bloco 2 — PR (1 dia)" etc., com estimativa de duração.
-4. Ao final, listar oportunidades cruzadas: clientes que poderiam ser visitados na mesma viagem mesmo não sendo do padrão principal.
-5. Não invente dados. Se faltar telefone/e-mail/cidade, diga "cadastro incompleto — atualizar antes da visita".
+## 1. Resumo executivo
+3-4 linhas: total de clientes elegíveis, nº de blocos sugeridos, dias estimados, custo total estimado da viagem.
 
-Formato de saída em Markdown:
-- Resumo executivo do roteiro (3-4 linhas)
-- Blocos de viagem numerados
-- Para cada bloco: estado, cidades, lista de clientes (nome, cidade, prioridade, contato, argumento)
-- Ações de pré-visita recomendadas
-- Avisos sobre cadastros incompletos
+## 2. Premissas usadas
+Tabela com: origem, veículo, consumo (km/l), preço combustível (R$/l), pedágio médio (R$/100km), diária hotel, refeições/dia, visitas por dia, máximo de visitas no período, dias disponíveis.
 
-Tom: técnico-comercial, objetivo, acionável. Use bullets curtos. Evite enrolação.
+## 3. Agrupamento por proximidade (clusters)
+Agrupe os clientes em CLUSTERS geográficos (cidades vizinhas no mesmo estado, ou estados limítrofes). Para cada cluster:
+- Cidades e estado
+- Nº de clientes no cluster
+- Distância estimada saindo de São Paulo (ida) em km — use seu conhecimento geográfico do Brasil
+- Tempo de viagem estimado (h)
+
+## 4. Roteiro otimizado de visitas
+Respeitando o LIMITE de visitas/dia e o MÁXIMO TOTAL informado pelo usuário, monte blocos:
+
+### Bloco N — <Cluster> (X dias)
+Para cada DIA do bloco:
+- **Dia X (data sugerida relativa, ex: D+1)** — cidade base
+  - Visita 1 (manhã): cliente, endereço, contato (telefone/whatsapp/email), prioridade, argumento comercial
+  - Visita 2 (tarde): idem
+- Deslocamentos internos do dia (km e tempo)
+
+Selecione os clientes priorizando: (a) maior concentração regional (menos km rodados), (b) presença de proposta recente, (c) cadastro completo (com telefone). Se o usuário pediu N visitas e há mais clientes elegíveis, escolha os MELHORES N e cite os demais como "backlog para próxima viagem".
+
+## 5. Custo estimado da viagem (calculadora)
+Tabela detalhada por bloco e total geral:
+
+| Item | Cálculo | Valor (R$) |
+|---|---|---|
+| Combustível | km_total ÷ consumo × preço/litro | R$ X |
+| Pedágio | km_total ÷ 100 × pedágio_médio | R$ X |
+| Hotel | noites × diária | R$ X |
+| Refeições | dias × refeições/dia | R$ X |
+| **TOTAL** | | **R$ X** |
+
+Mostre a CONTA explicitamente (ex: "1.200 km ÷ 12 km/l × R$ 6,00 = R$ 600"). Sempre arredonde para 2 casas e use formato brasileiro.
+
+## 6. Custo médio por visita
+Total ÷ nº de visitas realizadas = R$ X/visita. Comente se está alto/baixo vs benchmark típico de visita técnica-comercial (R$ 300-800).
+
+## 7. Recomendações finais
+- Cadastros incompletos a corrigir antes de viajar
+- Combinações com clientes de outros padrões na mesma rota
+- Sugestão de melhor mês/semana se houver sazonalidade
+
+Tom: técnico-comercial, MUITO objetivo, números explícitos, zero enrolação. Use bullets e tabelas. Nunca invente telefones/e-mails — use só o que veio nos dados.
 `.trim();
 
 Deno.serve(async (req) => {
@@ -36,7 +65,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { padrao, clients, technicalContext } = await req.json();
+    const { padrao, clients, technicalContext, premissas } = await req.json();
 
     if (!Array.isArray(clients) || clients.length === 0) {
       return new Response(
@@ -53,14 +82,32 @@ Deno.serve(async (req) => {
       });
     }
 
+    const p = premissas || {};
+    const premissasBlock = `
+PREMISSAS DE VIAGEM (USE EXATAMENTE ESTES VALORES NOS CÁLCULOS):
+- Origem: ${p.origem || "São Paulo - SP"}
+- Veículo: ${p.veiculo || "Carro sedan"}
+- Consumo: ${p.consumoKmL ?? 12} km/l
+- Preço combustível: R$ ${p.precoCombustivel ?? 6.0} / litro
+- Pedágio médio: R$ ${p.pedagioPor100km ?? 25} a cada 100 km
+- Diária hotel: R$ ${p.diariaHotel ?? 280}
+- Refeições/dia: R$ ${p.refeicoesDia ?? 120}
+- Visitas por dia: ${p.visitasPorDia ?? 2}
+- Máximo de visitas no período: ${p.maxVisitas ?? "todas"}
+- Dias disponíveis: ${p.diasDisponiveis ?? "calcule a partir de visitas/dia"}
+- Janela: ${p.janela || "próximas 4 semanas"}
+`.trim();
+
     const userPrompt = [
-      `Padrão técnico de câmara: ${padrao || "não informado"}`,
-      technicalContext ? `Contexto técnico:\n${JSON.stringify(technicalContext, null, 2)}` : "",
+      `Recorte: ${padrao || "não informado"}`,
+      technicalContext ? `Contexto:\n${JSON.stringify(technicalContext, null, 2)}` : "",
       "",
-      `Clientes elegíveis para roteiro (${clients.length}):`,
+      premissasBlock,
+      "",
+      `Clientes elegíveis (${clients.length}):`,
       JSON.stringify(clients, null, 2),
       "",
-      "Gere o roteiro de visitas seguindo as diretrizes do system prompt.",
+      "Gere o roteiro completo com calculadora de custo seguindo OBRIGATORIAMENTE o formato do system prompt.",
     ]
       .filter(Boolean)
       .join("\n");
@@ -74,7 +121,7 @@ Deno.serve(async (req) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
+          model: "google/gemini-2.5-pro",
           messages: [
             { role: "system", content: SYSTEM_PROMPT },
             { role: "user", content: userPrompt },
