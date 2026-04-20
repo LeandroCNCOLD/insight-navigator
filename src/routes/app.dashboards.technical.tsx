@@ -616,37 +616,78 @@ function ModelDetail({ group }: { group: ModelGroup }) {
               </tr>
             </thead>
             <tbody>
-              {group.occurrences.map((o) => (
-                <tr key={o.id} className="border-b border-border/20">
-                  <td className="py-1.5 pr-3 font-mono text-[10px]">
-                    {o.ctx?.numero || o.proposal_id.slice(0, 8)}
-                  </td>
-                  <td className="py-1.5 pr-3">
-                    {o.ctx?.client?.nome || "—"}
-                    {o.ctx?.client?.cidade && (
-                      <span className="text-muted-foreground"> · {o.ctx.client.cidade}/{o.ctx.client.estado}</span>
-                    )}
-                  </td>
-                  <td className="py-1.5 pr-3 text-muted-foreground">
-                    {o.ctx?.competitor?.nome || "—"}
-                  </td>
-                  <td className="py-1.5 pr-3 text-right font-mono">{o.quantidade ?? 1}</td>
-                  <td className="py-1.5 pr-3">
-                    {o.capacidadeUnitaria
-                      ? `${o.capacidadeUnitaria.toLocaleString("pt-BR")} kcal/h`
-                      : "—"}
-                  </td>
-                  <td className="py-1.5 pr-3 text-muted-foreground">
-                    {o.capacidade_kcal ? `${Number(o.capacidade_kcal).toLocaleString("pt-BR")} kcal/h` : "—"}
-                  </td>
-                  <td className="py-1.5 pr-3">{o.tempEvap != null ? `${o.tempEvap}°C` : "—"}</td>
-                  <td className="py-1.5 pr-3">{o.potencia_hp ? `${o.potencia_hp} HP` : "—"}</td>
-                  <td className="py-1.5 pr-3">{o.gas_refrigerante || "—"}</td>
-                  <td className="py-1.5 text-right">
-                    {o.valor_unitario ? formatBRL(Number(o.valor_unitario)) : "—"}
-                  </td>
-                </tr>
-              ))}
+              {group.occurrences.map((o) => {
+                const docId = o.ctx?.document_id;
+                const cliente = o.ctx?.client?.nome;
+                return (
+                  <tr key={o.id} className="border-b border-border/20">
+                    <td className="py-1.5 pr-3 font-mono text-[10px]">
+                      {docId ? (
+                        <Link
+                          to="/app/documents/$id"
+                          params={{ id: docId }}
+                          className="text-primary hover:underline"
+                          title="Abrir arquivo da proposta"
+                        >
+                          {o.ctx?.numero || o.proposal_id.slice(0, 8)}
+                        </Link>
+                      ) : (
+                        o.ctx?.numero || o.proposal_id.slice(0, 8)
+                      )}
+                    </td>
+                    <td className="py-1.5 pr-3">
+                      {docId && cliente ? (
+                        <Link
+                          to="/app/documents/$id"
+                          params={{ id: docId }}
+                          className="text-foreground hover:text-primary hover:underline"
+                          title="Abrir arquivo da proposta"
+                        >
+                          {cliente}
+                        </Link>
+                      ) : (
+                        cliente || "—"
+                      )}
+                      {o.ctx?.client?.cidade && (
+                        <span className="text-muted-foreground"> · {o.ctx.client.cidade}/{o.ctx.client.estado}</span>
+                      )}
+                    </td>
+                    <td className="py-1.5 pr-3 text-muted-foreground">
+                      {o.ctx?.competitor?.nome || "—"}
+                    </td>
+                    <td className="py-1.5 pr-3 text-right font-mono">{o.quantidade ?? 1}</td>
+                    <td className="py-1.5 pr-3">
+                      {o.capacidadeUnitaria ? (
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="font-medium">
+                            {o.capacidadeUnitaria.value.toLocaleString("pt-BR", { maximumFractionDigits: 0 })} kcal/h
+                          </span>
+                          {o.capacidadeUnitaria.source === "suggested" && (
+                            <Badge
+                              variant="outline"
+                              className="text-[9px] px-1 py-0 border-amber-500/40 text-amber-400 bg-amber-500/10"
+                              title={`Sugerido: total ÷ ${o.quantidade ?? 1} unidades. Verifique no documento.`}
+                            >
+                              sugerido
+                            </Badge>
+                          )}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                    <td className="py-1.5 pr-3 text-muted-foreground">
+                      {o.capacidade_kcal ? `${Number(o.capacidade_kcal).toLocaleString("pt-BR")} kcal/h` : "—"}
+                    </td>
+                    <td className="py-1.5 pr-3">{o.tempEvap != null ? `${o.tempEvap}°C` : "—"}</td>
+                    <td className="py-1.5 pr-3">{o.potencia_hp ? `${o.potencia_hp} HP` : "—"}</td>
+                    <td className="py-1.5 pr-3">{o.gas_refrigerante || "—"}</td>
+                    <td className="py-1.5 text-right">
+                      {o.valor_unitario ? formatBRL(Number(o.valor_unitario)) : "—"}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
