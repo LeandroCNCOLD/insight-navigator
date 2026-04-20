@@ -105,7 +105,9 @@ function HeadToHeadPage() {
   const [manualSearch, setManualSearch] = useState("");
   const [clientFilter, setClientFilter] = useState<string>("__all__");
   const [manualExplain, setManualExplain] = useState<string | null>(null);
+  const [manualComparison, setManualComparison] = useState<any | null>(null);
   const [manualLoading, setManualLoading] = useState(false);
+  const [manualResultado, setManualResultado] = useState<"ganhou" | "perdeu" | "em_aberto">("em_aberto");
 
   const norm = (s: string | null | undefined) =>
     (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
@@ -234,40 +236,30 @@ function HeadToHeadPage() {
     if (!manualHouse || !manualRival) return;
     setManualLoading(true);
     setManualExplain(null);
+    setManualComparison(null);
     try {
-      const ctx = {
-        cliente_casa: manualHouse.client?.nome,
-        cliente_rival: manualRival.client?.nome,
-        casa: {
-          fornecedor: manualHouse.competitor?.nome,
-          numero: manualHouse.numero,
-          valor: manualHouse.valor_total,
-          prazo_entrega_dias: manualHouse.prazo_entrega_dias,
-          garantia_meses: manualHouse.garantia_meses,
-          pagamento: manualHouse.condicao_pagamento,
-          status: manualHouse.status_proposta,
-          tecnico: manualHouse.dados_tecnicos,
+      const { data, error } = await supabase.functions.invoke("head-to-head-pair-ai", {
+        body: {
+          house_proposal_id: manualHouse.id,
+          rival_proposal_id: manualRival.id,
+          resultado: manualResultado,
         },
-        concorrente: {
-          fornecedor: manualRival.competitor?.nome,
-          numero: manualRival.numero,
-          valor: manualRival.valor_total,
-          prazo_entrega_dias: manualRival.prazo_entrega_dias,
-          garantia_meses: manualRival.garantia_meses,
-          pagamento: manualRival.condicao_pagamento,
-          status: manualRival.status_proposta,
-          tecnico: manualRival.dados_tecnicos,
-        },
-      };
-      const pergunta = `Compare estas duas propostas (uma da CN Cold e uma do concorrente ${manualRival.competitor?.nome || ""}) selecionadas manualmente. Aponte: (1) quem está mais barato e Δ%; (2) Δ prazo, Δ garantia, diferenças de pagamento; (3) provável motivo de decisão; (4) recomendação acionável para a CN Cold no próximo confronto. Contexto JSON: ${JSON.stringify(ctx)}`;
-      const { data, error } = await supabase.functions.invoke("market-intelligence", {
-        body: { question: pergunta, context: ctx },
       });
       if (error) throw error;
-      const answer = (data as any)?.answer || (data as any)?.response || (data as any)?.text || JSON.stringify(data);
-      setManualExplain(answer);
+      const d = data as any;
+      if (d?.error) throw new Error(d.error);
+      setManualExplain(d?.analysis || "Sem análise.");
+      setManualComparison(d?.comparison || null);
+
+      await supabase.from("proposal_review_events").insert({
+        proposal_id: manualHouse.id,
+        action: "comment",
+        comment: `[Head-to-Head vs ${manualRival.competitor?.nome} · resultado: ${manualResultado}] ${(d?.analysis || "").slice(0, 4500)}`,
+      } as any);
+
+      toast.success("Análise IA do par gerada.");
     } catch (e: any) {
-      toast.error(`Falha ao analisar par manual: ${e.message || e}`);
+      toast.error(`Falha ao analisar par: ${e.message || e}`);
     } finally {
       setManualLoading(false);
     }
