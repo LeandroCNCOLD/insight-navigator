@@ -276,7 +276,12 @@ function validateForensicExtraction(ex: any, sourceText: string) {
     const compactClient = cliente.replace(/\s+/g, "").toLowerCase();
     const compactText = text.replace(/\s+/g, "");
     if (compactClient.length >= 6 && !compactText.includes(compactClient) && evidencias.length < 2) {
-      return { valid: false, reason: "Cliente retornado sem sustentação no texto do documento" };
+      // Soft-purge: cliente parece alucinação — limpa o campo mas mantém a análise forense
+      console.warn("[validateForensicExtraction] cliente sem sustentação, removendo:", cliente);
+      if (ex?.cliente) {
+        ex.cliente.nome = null;
+        ex.cliente.razao_social = null;
+      }
     }
   }
 
