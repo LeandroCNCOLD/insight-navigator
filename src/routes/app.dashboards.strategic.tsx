@@ -213,6 +213,9 @@ function Strategic() {
       equipByProposal.set(e.proposal_id, arr);
     });
 
+    const clientById = new Map<string, ClientRow>();
+    (clients || []).forEach((c) => clientById.set(c.id, c));
+
     const map = new Map<string, PatternRow>();
 
     proposals.forEach((p) => {
@@ -236,13 +239,15 @@ function Strategic() {
           valorMedioPorCamara: 0,
           valorMedioPorEquipamento: 0,
           proposalIds: [],
+          clientesDetalhe: [],
+          estados: {},
+          cidades: {},
         } as PatternRow);
 
       cur.count++;
       cur.total += Number(p.valor_total) || 0;
       cur.proposalIds.push(p.id);
 
-      // técnica: pega o primeiro câmara amostral para representar
       const camaras = p.analise_tecnica_profunda?.camaras || [];
       if (camaras.length && cur.largura_m === undefined) {
         const c = camaras[0];
@@ -262,7 +267,6 @@ function Strategic() {
         cur.totalCamarasFisicas += c.quantidade_unidades || 1;
       });
 
-      // sistema (Plug-In x Split) via resumo + equipamentos reais
       const resumo = p.analise_tecnica_profunda?.equipamentos_resumo;
       const sistemaResumo = resumo?.tipo_sistema;
       const equips = equipByProposal.get(p.id) || [];
@@ -275,19 +279,13 @@ function Strategic() {
         cur.sistemas[t] = (cur.sistemas[t] || 0) + 1;
       });
 
-      // compressores e gases
       (resumo?.tipos_compressor || []).forEach((c) => {
         cur.compressores[c] = (cur.compressores[c] || 0) + 1;
       });
       (resumo?.gases_refrigerantes || []).forEach((g) => {
         cur.gases[g] = (cur.gases[g] || 0) + 1;
       });
-      equips.forEach((e) => {
-        if (e.compressor) cur.compressores[e.compressor] = (cur.compressores[e.compressor] || 0) + 0; // já contado pelo resumo, evita duplicar
-        if (e.gas_refrigerante) cur.gases[e.gas_refrigerante] = (cur.gases[e.gas_refrigerante] || 0) + 0;
-      });
 
-      // equipamentos detalhados (modelo)
       equips.forEach((e) => {
         const qtd = e.quantidade || 1;
         cur.totalEquipamentos += qtd;
@@ -306,17 +304,32 @@ function Strategic() {
       map.set(k, cur);
     });
 
-    // segundo passo: contar clientes únicos + médias
-    const clientesPorPadrao = new Map<string, Set<string>>();
+    // segundo passo: clientes únicos + agregação geo + médias
+    const clientesPorPadrao = new Map<string, Map<string, ClientPattern>>();
     proposals.forEach((p) => {
-      const set = clientesPorPadrao.get(p.padrao_camara) || new Set<string>();
-      if (p.client_id) set.add(p.client_id);
-      clientesPorPadrao.set(p.padrao_camara, set);
+      if (!p.client_id) return;
+      const padraoClients = clientesPorPadrao.get(p.padrao_camara) || new Map<string, ClientPattern>();
+      const c = clientById.get(p.client_id);
+      if (!c) return;
+      const cur = padraoClients.get(p.client_id) || { client: c, propostas: 0, valorTotal: 0 };
+      cur.propostas++;
+      cur.valorTotal += Number(p.valor_total) || 0;
+      padraoClients.set(p.client_id, cur);
+      clientesPorPadrao.set(p.padrao_camara, padraoClients);
     });
 
     return Array.from(map.values())
       .map((row) => {
-        row.clientes = clientesPorPadrao.get(row.padrao)?.size || 0;
+        const padraoClients = clientesPorPadrao.get(row.padrao);
+        const detalhe = padraoClients ? Array.from(padraoClients.values()) : [];
+        row.clientesDetalhe = detalhe.sort((a, b) => b.valorTotal - a.valorTotal);
+        row.clientes = detalhe.length;
+        detalhe.forEach((cp) => {
+          const uf = cp.client.estado || "—";
+          row.estados[uf] = (row.estados[uf] || 0) + 1;
+          const cidadeKey = `${cp.client.cidade || "—"} / ${uf}`;
+          row.cidades[cidadeKey] = (row.cidades[cidadeKey] || 0) + 1;
+        });
         row.ticketMedio = row.count ? row.total / row.count : 0;
         row.valorMedioPorCamara = row.totalCamarasFisicas
           ? row.total / row.totalCamarasFisicas
@@ -327,7 +340,7 @@ function Strategic() {
         return row;
       })
       .sort((a, b) => b.count - a.count);
-  }, [proposals, equipments]);
+  }, [proposals, equipments, clients]);
 
   // Agregados para os cards de distribuição (mantidos)
   const aggregates = useMemo(() => {
