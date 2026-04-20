@@ -84,6 +84,8 @@ function HeadToHeadPage() {
   const [search, setSearch] = useState("");
   const [explainingKey, setExplainingKey] = useState<string | null>(null);
   const [explanations, setExplanations] = useState<Record<string, string>>({});
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiResult, setAiResult] = useState<{ analysis: string; confronts_count: number; confronts: any[] } | null>(null);
 
   const q = useQuery({ queryKey: ["head-to-head"], queryFn: fetchHeadToHead });
 
@@ -98,6 +100,21 @@ function HeadToHeadPage() {
         p.rivals.some((r) => r.competitor?.nome?.toLowerCase().includes(s)),
     );
   }, [q.data, search]);
+
+  async function runGlobalAI() {
+    setAiLoading(true);
+    setAiResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("head-to-head-ai", { body: {} });
+      if (error) throw error;
+      setAiResult(data as any);
+      toast.success(`Análise IA gerada para ${(data as any)?.confronts_count || 0} confronto(s).`);
+    } catch (e: any) {
+      toast.error(`Falha ao gerar análise IA: ${e.message || e}`);
+    } finally {
+      setAiLoading(false);
+    }
+  }
 
   async function explain(pair: Pair, house: Row, rival: Row) {
     const key = `${house.id}|${rival.id}`;
