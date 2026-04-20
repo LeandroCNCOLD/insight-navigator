@@ -66,6 +66,7 @@ function ComparePage() {
         item.numero,
         item.client?.nome,
         item.client?.estado,
+        item.client?.cnpj,
         item.competitor?.nome,
         item.document?.file_name,
         item.status_proposta,
@@ -287,7 +288,51 @@ function ComparePage() {
 }
 
 function labelForCandidate(item: ProposalCompareCandidate) {
-  return `${item.client?.nome || "Cliente"} · ${item.numero || item.id.slice(0, 6)} · ${item.client?.estado || "UF"} · ${formatBRL(item.valor_total)}`;
+  const parts = [
+    item.client?.nome || "Cliente",
+    item.numero || item.id.slice(0, 6),
+    item.client?.estado || "UF",
+    formatBRL(item.valor_total),
+  ];
+  if (item.client?.cnpj) parts.push(`CNPJ ${item.client.cnpj}`);
+  return parts.join(" · ");
+}
+
+function ProposalPicker({
+  label,
+  candidates,
+  value,
+  onChange,
+  tone,
+}: {
+  label: string;
+  candidates: ProposalCompareCandidate[];
+  value: string;
+  onChange: (id: string) => void;
+  tone: "house" | "rival";
+}) {
+  const selected = candidates.find((c) => c.id === value);
+  const border = tone === "house" ? "border-l-4 border-l-success" : "border-l-4 border-l-primary";
+  return (
+    <div className={`rounded-md border bg-background p-2 ${border} space-y-1`}>
+      <div className="text-[11px] uppercase tracking-wider text-muted-foreground px-1">{label}</div>
+      <select
+        className="h-9 w-full rounded-md border bg-background px-2 text-sm"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      >
+        <option value="">— Selecione —</option>
+        {candidates.map((item) => (
+          <option key={item.id} value={item.id}>
+            {labelForCandidate(item)}
+          </option>
+        ))}
+      </select>
+      <div className="text-[11px] text-muted-foreground px-1">
+        {candidates.length} disponível(is){selected ? ` · selecionado: ${selected.client?.nome || selected.numero}` : ""}
+      </div>
+    </div>
+  );
 }
 
 function ProposalHeroCard({
