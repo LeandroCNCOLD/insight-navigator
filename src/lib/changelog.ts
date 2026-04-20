@@ -1,7 +1,7 @@
 // Changelog técnico do sistema DocIntel.
 // Atualize APP_VERSION + adicione uma entrada no topo a cada release/revisão relevante.
 
-export const APP_VERSION = "1.4.0";
+export const APP_VERSION = "1.5.0";
 export const APP_BUILD_DATE = "2026-04-20";
 
 export type ChangelogEntry = {
@@ -13,6 +13,17 @@ export type ChangelogEntry = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: "1.5.0",
+    date: "2026-04-20",
+    type: "feature",
+    title: "Capacidade unitária + curva e abertura de propostas",
+    changes: [
+      "Catálogo Técnico: capacidade unitária agora distingue valor extraído do documento vs sugestão (divisão automática), com badge visual.",
+      "Curva capacidade × temperatura por modelo, alimentada manualmente ou a partir das propostas.",
+      "Drill-down do catálogo: clicar no cliente/proposta abre o arquivo original do documento em nova aba.",
+    ],
+  },
   {
     version: "1.4.0",
     date: "2026-04-20",
