@@ -42,6 +42,7 @@ function ComparePage() {
   const [a, setA] = useState("");
   const [b, setB] = useState("");
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [clientFilter, setClientFilter] = useState<string>("__all__");
   const qc = useQueryClient();
 
   const candidatesQuery = useQuery({
@@ -61,12 +62,34 @@ function ComparePage() {
     enabled: Boolean(b),
   });
 
+  const norm = (s: string | null | undefined) =>
+    (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+  const clientKey = (item: ProposalCompareCandidate) => {
+    const cnpj = (item.client?.cnpj || "").replace(/\D/g, "");
+    return cnpj.length >= 8 ? `cnpj:${cnpj}` : `name:${norm(item.client?.nome)}`;
+  };
+
+  const clientGroups = useMemo(() => {
+    const map = new Map<string, { key: string; label: string; count: number; cnpj: string | null }>();
+    for (const item of candidatesQuery.data || []) {
+      const key = clientKey(item);
+      if (key === "name:" || key === "cnpj:") continue;
+      const cnpj = (item.client?.cnpj || "").replace(/\D/g, "");
+      const label = item.client?.nome || (cnpj ? `CNPJ ${cnpj}` : "Cliente");
+      const cur = map.get(key);
+      if (cur) cur.count += 1;
+      else map.set(key, { key, label, count: 1, cnpj: cnpj || null });
+    }
+    return Array.from(map.values()).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+  }, [candidatesQuery.data]);
+
   const filtered = useMemo(() => {
     const list = candidatesQuery.data || [];
-    if (!search.trim()) return list;
-    const q = search.toLowerCase();
-    return list.filter((item) =>
-      [
+    const q = search.trim().toLowerCase();
+    return list.filter((item) => {
+      if (clientFilter !== "__all__" && clientKey(item) !== clientFilter) return false;
+      if (!q) return true;
+      return [
         item.numero,
         item.client?.nome,
         item.client?.estado,
@@ -76,9 +99,9 @@ function ComparePage() {
         item.status_proposta,
       ]
         .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(q)),
-    );
-  }, [candidatesQuery.data, search]);
+        .some((value) => String(value).toLowerCase().includes(q));
+    });
+  }, [candidatesQuery.data, search, clientFilter]);
 
   const detailA = aQuery.data || null;
   const detailB = bQuery.data || null;
