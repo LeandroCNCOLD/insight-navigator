@@ -4,11 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader, EmptyState } from "@/components/dashboard-bits";
-import { FileText, Upload, RefreshCcw, Sparkles } from "lucide-react";
+import { FileText, Upload, RefreshCcw, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatBytes, formatDate, statusLabel } from "@/lib/format";
 import { Input } from "@/components/ui/input";
-import { useEffect, useState } from "react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useEffect, useMemo, useState } from "react";
 import { uploadQueue, type QueueItem } from "@/lib/upload-queue";
 import { toast } from "sonner";
 
@@ -20,6 +21,7 @@ export const Route = createFileRoute("/app/documents/")({
 function DocsList() {
   const [q, setQ] = useState("");
   const [fab, setFab] = useState<string>("__all__");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [queue, setQueue] = useState<QueueItem[]>([]);
   useEffect(() => {
     const unsub = uploadQueue.subscribe(setQueue);
@@ -80,6 +82,38 @@ function DocsList() {
     toast.success(`${filtered.length} documento(s) na fila de reprocessamento`);
   };
 
+  const visibleIds = useMemo(() => filtered.map((d: any) => d.id), [filtered]);
+  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selected.has(id));
+  const someVisibleSelected = visibleIds.some((id) => selected.has(id));
+
+  const toggleAllVisible = () => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) visibleIds.forEach((id) => next.delete(id));
+      else visibleIds.forEach((id) => next.add(id));
+      return next;
+    });
+  };
+
+  const toggleOne = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const reprocessSelected = () => {
+    const ids = Array.from(selected);
+    if (!ids.length) return;
+    const map = new Map((data || []).map((d: any) => [d.id, d.file_name]));
+    ids.forEach((id) => uploadQueue.reprocess(id, map.get(id) || id));
+    uploadQueue.start();
+    toast.success(`${ids.length} documento(s) na fila de reprocessamento`);
+    setSelected(new Set());
+  };
+
   const queueCount = queue.filter(
     (it) => it.kind === "reprocess" && ["pending", "extracting"].includes(it.status),
   ).length;
@@ -123,6 +157,22 @@ function DocsList() {
         </div>
       </div>
 
+      {selected.size > 0 && (
+        <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-md border border-primary/40 bg-primary/5">
+          <div className="text-sm">
+            <strong>{selected.size}</strong> documento(s) selecionado(s)
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>
+              <X className="size-4 mr-1.5" />Limpar
+            </Button>
+            <Button size="sm" onClick={reprocessSelected}>
+              <Sparkles className="size-4 mr-1.5" />Reprocessar selecionados
+            </Button>
+          </div>
+        </div>
+      )}
+
       {filtered.length === 0 ? (
         <EmptyState icon={FileText} title="Nenhum documento" description="Faça upload do primeiro arquivo para começar." action={
           <Link to="/app/upload"><Button>Fazer upload</Button></Link>
@@ -132,6 +182,13 @@ function DocsList() {
           <table className="w-full text-sm">
             <thead className="bg-muted/30 text-xs uppercase tracking-wider text-muted-foreground">
               <tr>
+                <th className="px-3 py-2.5 w-8">
+                  <Checkbox
+                    checked={allVisibleSelected ? true : someVisibleSelected ? "indeterminate" : false}
+                    onCheckedChange={toggleAllVisible}
+                    aria-label="Selecionar todos visíveis"
+                  />
+                </th>
                 <th className="text-left px-4 py-2.5 font-medium">Arquivo</th>
                 <th className="text-left px-4 py-2.5 font-medium">Fabricante</th>
                 <th className="text-left px-4 py-2.5 font-medium">Cliente</th>
@@ -146,8 +203,12 @@ function DocsList() {
             <tbody className="divide-y divide-border">
               {filtered.map((d: any) => {
                 const isReprocessing = reprocessingIds.has(d.id);
+                const isSelected = selected.has(d.id);
                 return (
-                  <tr key={d.id} className="hover:bg-muted/20">
+                  <tr key={d.id} className={`hover:bg-muted/20 ${isSelected ? "bg-primary/5" : ""}`}>
+                    <td className="px-3 py-2.5">
+                      <Checkbox checked={isSelected} onCheckedChange={() => toggleOne(d.id)} aria-label="Selecionar documento" />
+                    </td>
                     <td className="px-4 py-2.5">
                       <Link to="/app/documents/$id" params={{ id: d.id }} className="flex items-center gap-2 hover:text-primary">
                         <FileText className="size-3.5 text-muted-foreground" />
