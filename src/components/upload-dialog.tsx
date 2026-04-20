@@ -188,6 +188,20 @@ export function UploadDialog({
                       {it.file ? `${formatBytes(it.file.size)} · ` : ""}{it.message || statusLabel(it.status)}
                     </div>
                   </div>
+                  {it.status === "duplicate" && it.documentId && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-[11px]"
+                      onClick={() => {
+                        uploadQueue.reprocess(it.documentId!, it.fileName);
+                        uploadQueue.start();
+                        toast.info("Reprocessando arquivo já existente…");
+                      }}
+                    >
+                      Reprocessar
+                    </Button>
+                  )}
                   <StatusBadge status={it.status} />
                 </div>
               ))}
