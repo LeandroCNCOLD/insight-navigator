@@ -281,9 +281,28 @@ function Geo() {
     .slice(0, 12)
     .map((s) => ({ k: s.estado, v: s.valor }));
 
-  async function handleGenerateRoute(
+  function handleGenerateRoute(
     scope: { type: "state"; key: string } | { type: "city"; key: string },
   ) {
+    const clients =
+      scope.type === "state"
+        ? clientsByState.get(scope.key) || []
+        : clientsByCity.get(scope.key) || [];
+    if (clients.length === 0) {
+      toast.error("Nenhum cliente nesse recorte.");
+      return;
+    }
+    setPendingScope(scope);
+    setPremissas((p) => ({
+      ...p,
+      maxVisitas: Math.min(p.maxVisitas || 10, clients.length),
+    }));
+    setPremissasOpen(true);
+  }
+
+  async function runPlanner() {
+    if (!pendingScope) return;
+    const scope = pendingScope;
     let title = "";
     let clients: ClientRow[] = [];
     if (scope.type === "state") {
@@ -294,14 +313,12 @@ function Geo() {
       title = `Roteiro para ${ci} / ${uf}`;
       clients = clientsByCity.get(scope.key) || [];
     }
-    if (clients.length === 0) {
-      toast.error("Nenhum cliente nesse recorte.");
-      return;
-    }
+    setPremissasOpen(false);
     setRouteModal({ open: true, title, loading: true, content: "" });
     try {
       const payload = {
         padrao: title,
+        premissas,
         clients: clients.map((c) => ({
           nome: c.nome,
           cidade: c.cidade,
@@ -317,6 +334,7 @@ function Geo() {
         technicalContext: {
           escopo: scope.type === "state" ? "estado" : "cidade",
           recorte: scope.key,
+          totalClientes: clients.length,
         },
       };
       const { data: res, error } = await supabase.functions.invoke(
