@@ -508,35 +508,41 @@ class UploadQueue {
         }
       }
 
-      // 5b) Resolve competitor (manufacturer) — for house uploads (CN Cold) we force the configured id; otherwise fallback to "Conela" when not detected.
+      // 5b) Resolve competitor (manufacturer) — trust AI/heuristic; if it matches CN Cold, treat as house brand. No automatic fallback to "Conela".
       let competitorId: string | null = null;
       if (it.houseCompetitorId) {
         competitorId = it.houseCompetitorId;
       } else {
-        const fabricanteNome = (ex.fabricante && String(ex.fabricante).trim()) || "Conela";
-        const { data: existingComp } = await supabase
-          .from("competitors")
-          .select("id")
-          .eq("owner_id", u.user.id)
-          .ilike("nome", fabricanteNome)
-          .maybeSingle();
-        if (existingComp) competitorId = existingComp.id;
-        else {
-          const { data: newComp } = await supabase
+        const fabricanteNome = (ex.fabricante && String(ex.fabricante).trim()) || null;
+        if (fabricanteNome) {
+          const isHouse = /\bcn\s*cold\b|\bcncold\b|\bcn[\s\-_]?code\b/i.test(fabricanteNome);
+          const lookupName = isHouse ? "CN Cold" : fabricanteNome;
+          const { data: existingComp } = await supabase
             .from("competitors")
-            .insert({
-              owner_id: u.user.id,
-              nome: fabricanteNome,
-              descricao:
-                ex.fabricante_origem === "ia"
-                  ? "Detectado pela IA"
-                  : ex.fabricante_origem === "heuristica"
-                    ? "Detectado por padrão de texto"
-                    : "Atribuído por padrão (Conela)",
-            })
-            .select()
-            .single();
-          competitorId = newComp?.id || null;
+            .select("id")
+            .eq("owner_id", u.user.id)
+            .ilike("nome", lookupName)
+            .maybeSingle();
+          if (existingComp) {
+            competitorId = existingComp.id;
+            if (isHouse) await supabase.from("competitors").update({ is_house: true } as any).eq("id", existingComp.id);
+          } else {
+            const { data: newComp } = await supabase
+              .from("competitors")
+              .insert({
+                owner_id: u.user.id,
+                nome: lookupName,
+                is_house: isHouse,
+                descricao: isHouse
+                  ? "Empresa da casa (detectada pelo fabricante do documento)"
+                  : ex.fabricante_origem === "ia"
+                    ? "Detectado pela IA"
+                    : "Detectado por padrão de texto",
+              } as any)
+              .select()
+              .single();
+            competitorId = newComp?.id || null;
+          }
         }
       }
 
