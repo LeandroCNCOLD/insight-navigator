@@ -34,6 +34,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 
+type CamaraEquipAlocado = {
+  modelo?: string;
+  marca?: string;
+  tipo?: string;
+  quantidade?: number;
+  capacidade_unitaria_kcal_h?: number;
+  potencia_hp?: number;
+  gas?: string;
+  compressor?: string;
+};
+
 type CamaraJson = {
   nome?: string;
   largura_m?: number;
@@ -51,6 +62,8 @@ type CamaraJson = {
   quantidade_unidades?: number;
   umidade_relativa_pct?: number;
   carga_termica_kcal_h?: number;
+  capacidade_total_ofertada_kcal_h?: number;
+  equipamentos_alocados?: CamaraEquipAlocado[];
 };
 
 type EquipResumo = {
