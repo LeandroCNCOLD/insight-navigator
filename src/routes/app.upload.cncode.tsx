@@ -14,10 +14,10 @@ import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/app/upload/cncode")({
   component: UploadCNCodePage,
-  head: () => ({ meta: [{ title: "Upload CN Code — DocIntel" }] }),
+  head: () => ({ meta: [{ title: "Upload CN Cold — DocIntel" }] }),
 });
 
-const HOUSE_NAME = "CN Code";
+const HOUSE_NAME = "CN Cold";
 
 async function ensureHouseCompetitorId(): Promise<string> {
   const { data: u } = await supabase.auth.getUser();
@@ -104,8 +104,8 @@ function UploadCNCodePage() {
   return (
     <div className="p-6 space-y-6">
       <PageHeader
-        title="Upload CN Code (Empresa da casa)"
-        description="Base exclusiva das propostas da CN Code. Documentos enviados aqui são automaticamente atribuídos à empresa-casa, separando-os dos concorrentes para permitir análise head-to-head."
+        title="Upload CN Cold (Empresa da casa)"
+        description="Base exclusiva das propostas da CN Cold. Documentos enviados aqui são automaticamente atribuídos à empresa-casa, separando-os dos concorrentes para permitir análise head-to-head."
       />
 
       <Card className="p-4 border-l-4 border-l-success bg-success/5">
@@ -114,7 +114,7 @@ function UploadCNCodePage() {
           <div className="text-sm">
             <div className="font-medium">Modo empresa-casa ativo</div>
             <div className="text-muted-foreground">
-              Propostas serão vinculadas a <strong>CN Code</strong>. Detecção de fabricante via IA é ignorada.
+              Propostas serão vinculadas a <strong>CN Cold</strong>. Detecção de fabricante via IA é ignorada.
             </div>
           </div>
         </div>
@@ -130,10 +130,10 @@ function UploadCNCodePage() {
             <UploadIcon className="size-6" />
           </div>
           <div className="font-medium">
-            {isDragActive ? "Solte as propostas CN Code aqui" : "Arraste propostas CN Code ou clique para selecionar"}
+            {isDragActive ? "Solte as propostas CN Cold aqui" : "Arraste propostas CN Cold ou clique para selecionar"}
           </div>
           <div className="text-sm text-muted-foreground mt-1">
-            PDF, DOCX, XLSX — vão direto para a base CN Code
+            PDF, DOCX, XLSX — vão direto para a base CN Cold
           </div>
         </div>
       </Card>
@@ -142,7 +142,7 @@ function UploadCNCodePage() {
         <Card className="gradient-surface border-border overflow-hidden">
           <div className="p-4 border-b border-border flex items-center justify-between">
             <div className="text-sm font-medium">
-              {houseItems.length} arquivo(s) CN Code{running && " · processando…"}
+              {houseItems.length} arquivo(s) CN Cold{running && " · processando…"}
             </div>
             <div className="flex gap-2">
               <Button variant="ghost" size="sm" onClick={() => uploadQueue.clear()} disabled={running}>
@@ -168,7 +168,7 @@ function UploadCNCodePage() {
                 <div className="flex-1 min-w-0">
                   <div className="text-sm truncate">
                     {it.fileName}
-                    <span className="ml-2 text-[10px] uppercase tracking-wider text-success">CN Code</span>
+                    <span className="ml-2 text-[10px] uppercase tracking-wider text-success">CN Cold</span>
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {it.file ? `${formatBytes(it.file.size)} · ` : ""}{it.message || statusLabel(it.status)}

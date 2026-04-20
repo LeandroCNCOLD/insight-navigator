@@ -18,7 +18,7 @@ const nav: { section: string; items: NavItem[] }[] = [
     { to: "/app", label: "Dashboard", icon: LayoutDashboard, exact: true },
   ]},
   { section: "Documentos", items: [
-    { to: "/app/upload/cncode", label: "Upload CN Code (casa)", icon: Home },
+    { to: "/app/upload/cncode", label: "Upload CN Cold (casa)", icon: Home },
     { to: "/app/upload", label: "Upload Concorrentes", icon: Upload, exact: true },
     { to: "/app/documents", label: "Documentos", icon: FileText },
     { to: "/app/queue", label: "Fila de processamento", icon: ListChecks },
