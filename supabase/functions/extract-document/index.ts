@@ -475,58 +475,85 @@ Deno.serve(async (req) => {
     const content = text.length > MAX ? text.slice(0, MAX) + "\n\n[...truncado...]" : text;
 
     const MODELS = ["google/gemini-2.5-flash", "google/gemini-2.5-pro", "google/gemini-2.5-flash-lite"];
+    const MAX_ATTEMPTS_PER_MODEL = 3;
     let toolCall: any = null;
     let lastError: string | null = null;
     let lastStatus = 0;
 
-    for (const model of MODELS) {
-      const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model,
-          messages: [
-            { role: "system", content: SYSTEM_PROMPT },
-            { role: "user", content: `Documento: ${fileName} (${fileType})\n\n--- INÍCIO ---\n${content}\n--- FIM ---` },
-          ],
-          tools: [TOOL_SCHEMA],
-          tool_choice: { type: "function", function: { name: "extract_proposal" } },
-        }),
-      });
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-      if (!res.ok) {
-        lastStatus = res.status;
-        if (res.status === 429) return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns instantes." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-        if (res.status === 402) return new Response(JSON.stringify({ error: "Créditos de IA esgotados. Adicione créditos no workspace." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-        lastError = await res.text();
-        console.error(`AI gateway error model=${model}`, res.status, lastError);
-        continue;
+    outer: for (const model of MODELS) {
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS_PER_MODEL; attempt++) {
+        try {
+          const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model,
+              messages: [
+                { role: "system", content: SYSTEM_PROMPT },
+                { role: "user", content: `Documento: ${fileName} (${fileType})\n\n--- INÍCIO ---\n${content}\n--- FIM ---` },
+              ],
+              tools: [TOOL_SCHEMA],
+              tool_choice: { type: "function", function: { name: "extract_proposal" } },
+            }),
+          });
+
+          if (!res.ok) {
+            lastStatus = res.status;
+            // Retryable errors: 429 (rate-limit), 502/503/504 (gateway/upstream blip)
+            if ([429, 502, 503, 504].includes(res.status)) {
+              lastError = `HTTP ${res.status}`;
+              const backoffMs = Math.min(8000, 600 * Math.pow(2, attempt - 1)) + Math.floor(Math.random() * 400);
+              console.warn(`AI gateway ${res.status} model=${model} attempt=${attempt} → retry in ${backoffMs}ms`);
+              await sleep(backoffMs);
+              continue;
+            }
+            // 402 = creditos esgotados, falha definitiva
+            if (res.status === 402) {
+              return new Response(JSON.stringify({ error: "Créditos de IA esgotados. Adicione créditos no workspace." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+            }
+            lastError = await res.text();
+            console.error(`AI gateway error model=${model}`, res.status, lastError);
+            break; // tenta próximo modelo
+          }
+
+          const data = await res.json();
+          const choice = data.choices?.[0];
+          const innerError = choice?.error;
+          const finishReason = choice?.finish_reason;
+
+          if (innerError) {
+            console.error(`AI inner error model=${model}`, JSON.stringify(innerError));
+            lastError = innerError.message || "provider error";
+            break;
+          }
+
+          if (finishReason === "length" || finishReason === "max_tokens") {
+            lastError = "resposta truncada";
+            break;
+          }
+
+          toolCall = choice?.message?.tool_calls?.[0];
+          if (toolCall) break outer;
+
+          lastError = "sem tool_call";
+          console.error(`No tool call model=${model}`, JSON.stringify(data).slice(0, 500));
+          break;
+        } catch (fetchErr) {
+          lastError = fetchErr instanceof Error ? fetchErr.message : "fetch failed";
+          console.warn(`AI gateway fetch error model=${model} attempt=${attempt}: ${lastError}`);
+          if (attempt < MAX_ATTEMPTS_PER_MODEL) {
+            await sleep(600 * Math.pow(2, attempt - 1));
+            continue;
+          }
+          break;
+        }
       }
-
-      const data = await res.json();
-      const choice = data.choices?.[0];
-      const innerError = choice?.error;
-      const finishReason = choice?.finish_reason;
-
-      if (innerError) {
-        console.error(`AI inner error model=${model}`, JSON.stringify(innerError));
-        lastError = innerError.message || "provider error";
-        continue;
-      }
-
-      if (finishReason === "length" || finishReason === "max_tokens") {
-        lastError = "resposta truncada";
-        continue;
-      }
-
-      toolCall = choice?.message?.tool_calls?.[0];
-      if (toolCall) break;
-
-      lastError = "sem tool_call";
-      console.error(`No tool call model=${model}`, JSON.stringify(data).slice(0, 500));
     }
 
     if (!toolCall) {
+      // 502 → cliente sabe que pode reprocessar; não consumimos crédito desnecessário
       return new Response(JSON.stringify({ error: `IA indisponível após retries: ${lastError || "sem detalhes"}` }), { status: lastStatus === 503 ? 503 : 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
