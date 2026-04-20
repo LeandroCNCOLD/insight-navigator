@@ -135,17 +135,179 @@ class UploadQueue {
       .join("");
   }
 
+  private async persistExtractedProposal(
+    docId: string,
+    ex: any,
+    ownerId: string,
+    houseCompetitorId?: string,
+  ) {
+    // Resolve client
+    let clientId: string | null = null;
+    if (ex.cliente_nome) {
+      const { data: existingClient } = await supabase
+        .from("clients")
+        .select("id")
+        .eq("owner_id", ownerId)
+        .ilike("nome", ex.cliente_nome)
+        .maybeSingle();
+      if (existingClient) clientId = existingClient.id;
+      else {
+        const { data: newClient } = await supabase
+          .from("clients")
+          .insert({
+            owner_id: ownerId,
+            nome: ex.cliente_nome,
+            razao_social: ex.cliente_razao_social,
+            cidade: ex.cliente_cidade,
+            estado: ex.cliente_estado,
+            segmento: ex.segmento,
+          })
+          .select()
+          .single();
+        clientId = newClient?.id || null;
+      }
+    }
+
+    // Resolve competitor
+    let competitorId: string | null = null;
+    if (houseCompetitorId) {
+      competitorId = houseCompetitorId;
+    } else {
+      const fabricanteNome = (ex.fabricante && String(ex.fabricante).trim()) || "Conela";
+      const { data: existingComp } = await supabase
+        .from("competitors")
+        .select("id")
+        .eq("owner_id", ownerId)
+        .ilike("nome", fabricanteNome)
+        .maybeSingle();
+      if (existingComp) competitorId = existingComp.id;
+      else {
+        const { data: newComp } = await supabase
+          .from("competitors")
+          .insert({
+            owner_id: ownerId,
+            nome: fabricanteNome,
+            descricao:
+              ex.fabricante_origem === "ia"
+                ? "Detectado pela IA"
+                : ex.fabricante_origem === "heuristica"
+                  ? "Detectado por padrão de texto"
+                  : "Atribuído por padrão (Conela)",
+          })
+          .select()
+          .single();
+        competitorId = newComp?.id || null;
+      }
+    }
+
+    const { data: prop } = await supabase
+      .from("proposals")
+      .insert({
+        owner_id: ownerId,
+        document_id: docId,
+        client_id: clientId,
+        competitor_id: competitorId,
+        numero: ex.numero,
+        data_proposta: ex.data_proposta,
+        valor_total: ex.valor_total,
+        condicao_pagamento: ex.condicao_pagamento,
+        parcelas: ex.parcelas,
+        prazo_fabricacao_dias: ex.prazo_fabricacao_dias,
+        prazo_entrega_dias: ex.prazo_entrega_dias,
+        prazo_instalacao_dias: ex.prazo_instalacao_dias,
+        garantia_meses: ex.garantia_meses,
+        garantia_limitacoes: ex.garantia_limitacoes,
+        exclusoes_garantia: ex.exclusoes_garantia,
+        frete_tipo: ex.frete_tipo,
+        frete_incluso: ex.frete_incluso,
+        instalacao_inclusa: ex.instalacao_inclusa,
+        fornecimento_cliente: ex.fornecimento_cliente,
+        vendedor: ex.vendedor,
+        representante_legal: ex.representante_legal,
+        tem_assinatura: ex.tem_assinatura,
+        status_proposta: ex.status_proposta,
+        observacoes: ex.observacoes,
+        riscos: ex.riscos,
+        score_confianca: ex.score_confianca,
+        dados_tecnicos: ex.dados_tecnicos || {},
+        clausulas: ex.clausulas || [],
+        resumo_executivo: ex.resumo_executivo,
+        resumo_tecnico: ex.resumo_tecnico,
+        resumo_comercial: ex.resumo_comercial,
+        insights_benchmarking: ex.insights_benchmarking,
+        palavras_chave: Array.isArray(ex.palavras_chave) ? ex.palavras_chave : [],
+        porte_projeto: ex.porte_projeto,
+        indicio_fechamento: ex.indicio_fechamento,
+        segmentacao_cliente: ex.segmentacao_cliente,
+      })
+      .select()
+      .single();
+
+    if (prop && Array.isArray(ex.equipamentos) && ex.equipamentos.length) {
+      await supabase.from("equipments").insert(
+        ex.equipamentos.map((e: any) => ({
+          owner_id: ownerId,
+          proposal_id: prop.id,
+          tipo: e.tipo,
+          modelo: e.modelo,
+          marca: e.marca,
+          quantidade: e.quantidade,
+          potencia_hp: e.potencia_hp,
+          capacidade_kcal: e.capacidade_kcal,
+          compressor: e.compressor,
+          gas_refrigerante: e.gas_refrigerante,
+          tipo_degelo: e.tipo_degelo,
+          tipo_condensacao: e.tipo_condensacao,
+          valor_unitario: e.valor_unitario,
+        })),
+      );
+    }
+
+    if (prop && Array.isArray(ex.evidencias) && ex.evidencias.length) {
+      await supabase.from("evidences").insert(
+        ex.evidencias
+          .filter((ev: any) => ev?.campo)
+          .map((ev: any) => ({
+            owner_id: ownerId,
+            document_id: docId,
+            proposal_id: prop.id,
+            campo: String(ev.campo).slice(0, 200),
+            valor_extraido:
+              ev.valor_extraido != null ? String(ev.valor_extraido).slice(0, 1000) : null,
+            pagina: typeof ev.pagina === "number" ? ev.pagina : null,
+            trecho: ev.trecho ? String(ev.trecho).slice(0, 500) : null,
+            score_confianca: typeof ev.score_confianca === "number" ? ev.score_confianca : null,
+            status: "pending",
+          })),
+      );
+    }
+
+    await supabase
+      .from("documents")
+      .update({
+        status: "extracted",
+        error_message: null,
+        client_id: clientId,
+        competitor_id: competitorId,
+        tipo_documental: ex.tipo_documental,
+        resumo_executivo: ex.resumo_executivo,
+      })
+      .eq("id", docId);
+
+    return prop;
+  }
+
   private async processReprocess(it: QueueItem) {
     if (!it.documentId) throw new Error("documentId ausente para reprocessar");
 
-    // Ensure raw_text exists; if not, re-parse from storage (legacy docs)
     const { data: doc, error: docErr } = await supabase
       .from("documents")
-      .select("id, file_path, file_name, raw_text")
+      .select("id, file_path, file_name, raw_text, owner_id")
       .eq("id", it.documentId)
       .maybeSingle();
     if (docErr || !doc) throw new Error("Documento não encontrado");
 
+    // Ensure raw_text exists; if not, re-parse from storage
     if (!hasMeaningfulText(doc.raw_text)) {
       this.update(it.id, { status: "parsing", message: "Re-extraindo texto do arquivo…" });
       const { data: blob, error: dlErr } = await supabase.storage
@@ -157,12 +319,32 @@ class UploadQueue {
       if (!hasMeaningfulText(parsed.text)) {
         throw new Error("Não foi possível extrair texto (PDF escaneado/sem OCR?)");
       }
-      await supabase
-        .from("documents")
-        .update({ raw_text: parsed.text.slice(0, 200000) })
-        .eq("id", doc.id);
+      doc.raw_text = parsed.text.slice(0, 200000);
+      await supabase.from("documents").update({ raw_text: doc.raw_text }).eq("id", doc.id);
     }
 
+    // Check if a proposal already exists for this document
+    const { data: existingProp } = await supabase
+      .from("proposals")
+      .select("id")
+      .eq("document_id", it.documentId)
+      .maybeSingle();
+
+    // If no proposal, run the FULL extraction pipeline (reuses cached raw_text)
+    if (!existingProp) {
+      this.update(it.id, { status: "extracting", message: "Re-extraindo proposta com IA…" });
+      const ext = doc.file_name.split(".").pop()?.toLowerCase() || "";
+      const { data: ai, error: aiErr } = await supabase.functions.invoke("extract-document", {
+        body: { text: doc.raw_text, fileName: doc.file_name, fileType: ext },
+      });
+      if (aiErr) throw new Error(aiErr.message);
+      if (ai?.error) throw new Error(ai.error);
+      const ex = ai.extracted;
+      this.update(it.id, { status: "saving", message: "Persistindo proposta…" });
+      await this.persistExtractedProposal(doc.id, ex, doc.owner_id, it.houseCompetitorId);
+    }
+
+    // Always run forensic on top
     this.update(it.id, { status: "extracting", message: "Análise forense profunda…" });
     const { data, error } = await supabase.functions.invoke("forensic-analyze", {
       body: { documentId: it.documentId },
@@ -171,7 +353,11 @@ class UploadQueue {
     if (data?.error) throw new Error(data.error);
     this.update(it.id, {
       status: "done",
-      message: data?.padrao_camara ? `Padrão: ${data.padrao_camara}` : "Reprocessado",
+      message: !existingProp
+        ? "Proposta criada + análise forense"
+        : data?.padrao_camara
+          ? `Padrão: ${data.padrao_camara}`
+          : "Reprocessado",
     });
   }
 
