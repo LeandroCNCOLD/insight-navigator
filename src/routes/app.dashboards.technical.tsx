@@ -522,13 +522,13 @@ function Tech() {
 function ModelDetail({ group }: { group: ModelGroup }) {
   // Build seed points from occurrences with both temp and unit capacity available
   const seedPoints = group.occurrences
-    .filter((o) => o.tempEvap != null && o.capacidadeUnitaria != null && o.capacidadeUnitaria > 0)
+    .filter((o) => o.tempEvap != null && o.capacidadeUnitaria != null && o.capacidadeUnitaria.value > 0)
     .map((o) => ({
       marca: group.marca,
       modelo: group.modelo,
       gas_refrigerante: o.gas_refrigerante,
       temp_evaporacao_c: o.tempEvap as number,
-      capacidade_kcal_h: o.capacidadeUnitaria as number,
+      capacidade_kcal_h: (o.capacidadeUnitaria as { value: number }).value,
       potencia_hp: o.potencia_hp,
       proposal_id: o.proposal_id,
     }));
