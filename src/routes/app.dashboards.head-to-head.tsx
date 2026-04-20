@@ -41,12 +41,12 @@ type Pair = {
   rivals: Row[];
 };
 
-async function fetchHeadToHead(): Promise<Pair[]> {
+async function fetchHeadToHead(): Promise<{ pairs: Pair[]; allRows: Row[] }> {
   const { data, error } = await supabase
     .from("proposals")
     .select(
       `id, client_id, competitor_id, valor_total, status_proposta, prazo_entrega_dias, garantia_meses, condicao_pagamento, numero, data_proposta, dados_tecnicos,
-       client:clients(nome,estado),
+       client:clients(nome,estado,cnpj),
        competitor:competitors(nome,is_house)`,
     )
     .not("client_id", "is", null);
@@ -69,7 +69,8 @@ async function fetchHeadToHead(): Promise<Pair[]> {
     if (r.competitor?.is_house) p.house.push(r);
     else p.rivals.push(r);
   }
-  return Array.from(byClient.values()).filter((p) => p.house.length > 0 && p.rivals.length > 0);
+  const pairs = Array.from(byClient.values()).filter((p) => p.house.length > 0 && p.rivals.length > 0);
+  return { pairs, allRows: rows };
 }
 
 function statusVariant(s: string | null): "default" | "secondary" | "destructive" | "outline" {
