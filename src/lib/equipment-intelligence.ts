@@ -159,7 +159,7 @@ export async function fetchEquipmentIntelligenceData(): Promise<EquipmentIntelli
         status_proposta,
         dados_tecnicos,
         client:clients(nome,estado,cidade),
-        competitor:competitors(nome)
+        competitor:competitors!competitor_id(nome)
       )
     `);
 

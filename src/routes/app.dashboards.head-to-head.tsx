@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Swords, TrendingDown, TrendingUp, Loader2, Sparkles, Brain } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Swords, TrendingDown, TrendingUp, Loader2, Sparkles, Brain, Plus } from "lucide-react";
+import { UploadDialog } from "@/components/upload-dialog";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -47,7 +48,7 @@ async function fetchHeadToHead(): Promise<{ pairs: Pair[]; allRows: Row[] }> {
     .select(
       `id, client_id, competitor_id, valor_total, status_proposta, prazo_entrega_dias, garantia_meses, condicao_pagamento, numero, data_proposta, dados_tecnicos,
        client:clients(nome,estado,cnpj),
-       competitor:competitors(nome,is_house)`,
+       competitor:competitors!competitor_id(nome,is_house)`,
     )
     .not("client_id", "is", null);
   if (error) throw error;
@@ -83,6 +84,8 @@ function statusVariant(s: string | null): "default" | "secondary" | "destructive
 
 function HeadToHeadPage() {
   const [search, setSearch] = useState("");
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const qc = useQueryClient();
   const [explainingKey, setExplainingKey] = useState<string | null>(null);
   const [explanations, setExplanations] = useState<Record<string, string>>({});
   const [aiLoading, setAiLoading] = useState(false);
@@ -252,10 +255,21 @@ function HeadToHeadPage() {
             : "Selecione manualmente uma proposta CN Cold e uma do concorrente para comparar — ou gere a análise automática por CNPJ."
         }
         action={
-          <Link to="/app/upload/cncode">
-            <Button variant="outline">Subir mais CN Cold</Button>
-          </Link>
+          <div className="flex gap-2">
+            <Button onClick={() => setUploadOpen(true)}>
+              <Plus className="size-4 mr-1" /> Novo arquivo
+            </Button>
+            <Link to="/app/upload/cncode">
+              <Button variant="outline">Subir mais CN Cold</Button>
+            </Link>
+          </div>
         }
+      />
+      <UploadDialog
+        open={uploadOpen}
+        onOpenChange={setUploadOpen}
+        defaultMode="house"
+        onComplete={() => qc.invalidateQueries({ queryKey: ["head-to-head"] })}
       />
 
       <Card className="p-5 gradient-surface border-border space-y-3">

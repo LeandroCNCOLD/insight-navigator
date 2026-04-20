@@ -1,14 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRightLeft,
   FileSearch,
   GitCompare,
+  Plus,
   Search,
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
+import { UploadDialog } from "@/components/upload-dialog";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,6 +41,8 @@ function ComparePage() {
   const [search, setSearch] = useState("");
   const [a, setA] = useState("");
   const [b, setB] = useState("");
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const qc = useQueryClient();
 
   const candidatesQuery = useQuery({
     queryKey: ["compare-candidates"],
@@ -114,10 +118,21 @@ function ComparePage() {
         title="Benchmark de Propostas"
         description="Comparação executiva, técnica, comercial e contratual entre duas propostas."
         action={
-          <Link to="/app/proposals">
-            <Button variant="outline">Ver propostas</Button>
-          </Link>
+          <div className="flex gap-2">
+            <Button onClick={() => setUploadOpen(true)}>
+              <Plus className="size-4 mr-1" /> Novo arquivo
+            </Button>
+            <Link to="/app/proposals">
+              <Button variant="outline">Ver propostas</Button>
+            </Link>
+          </div>
         }
+      />
+      <UploadDialog
+        open={uploadOpen}
+        onOpenChange={setUploadOpen}
+        defaultMode="house"
+        onComplete={() => qc.invalidateQueries({ queryKey: ["compare-candidates"] })}
       />
 
       <Card className="p-4">

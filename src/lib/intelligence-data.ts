@@ -23,7 +23,7 @@ export async function buildIntelligenceDataset(): Promise<IntelligenceDatasetRow
   const { data, error } = await supabase.from("proposals").select(`
       *,
       client:clients(nome,estado),
-      competitor:competitors(nome),
+      competitor:competitors!competitor_id(nome),
       equipments(*)
     `);
 

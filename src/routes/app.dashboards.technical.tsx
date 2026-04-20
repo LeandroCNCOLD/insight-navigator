@@ -141,7 +141,7 @@ function Tech() {
         supabase
           .from("proposals")
           .select(
-            "id, numero, data_proposta, valor_total, dados_tecnicos, document_id, client:clients(id, nome, cidade, estado), competitor:competitors(id, nome)"
+            "id, numero, data_proposta, valor_total, dados_tecnicos, document_id, client:clients(id, nome, cidade, estado), competitor:competitors!competitor_id(id, nome)"
           ),
       ]);
       return { equips: (equips || []) as EquipRow[], props: (props || []) as any[] };

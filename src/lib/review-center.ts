@@ -63,7 +63,7 @@ export async function fetchReviewQueue(filters: ReviewFilters): Promise<ReviewQu
       score_confianca,
       created_at,
       client:clients(nome,estado),
-      competitor:competitors(nome),
+      competitor:competitors!competitor_id(nome),
       document:documents(id,file_name,status,tem_analise_forense)
     `)
     .order("score_confianca", { ascending: true })
