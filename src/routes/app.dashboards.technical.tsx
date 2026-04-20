@@ -77,9 +77,10 @@ type ModelGroup = {
   modelo: string;
   marca: string;
   tipo: string;
-  occurrences: Array<EquipRow & { ctx: ProposalCtx | null }>;
+  occurrences: Array<EquipRow & { ctx: ProposalCtx | null; capacidadeUnitaria: number | null; tempEvap: number | null }>;
   totalQty: number;
   capacidadeKcal: { min: number; max: number; avg: number } | null;
+  capacidadeKcalUnit: { min: number; max: number; avg: number } | null;
   potenciaHp: { min: number; max: number; avg: number } | null;
   valorUnit: { min: number; max: number; avg: number } | null;
   gases: string[];
@@ -93,6 +94,25 @@ type ModelGroup = {
   fluidosArmazenados: string[];
   clientes: string[];
 };
+
+// Heuristic: infer unit capacity from registered total when value seems aggregated.
+// If quantidade > 1 and capacidade_kcal divides cleanly OR is suspiciously large
+// (>= 4x quantidade), assume it's a total and divide. Otherwise treat as unitary.
+function inferUnitCapacity(
+  rawCapacidade: number | null | undefined,
+  qty: number | null | undefined
+): number | null {
+  const c = Number(rawCapacidade);
+  const q = Math.max(1, Number(qty) || 1);
+  if (!c || isNaN(c) || c <= 0) return null;
+  if (q <= 1) return c;
+  // If capacity divides evenly by quantity AND quotient is plausible (>=200 kcal/h), treat as total.
+  if (c % q === 0 && c / q >= 200) return c / q;
+  // If capacity is "very large" relative to a single unit (heuristic ratio), divide.
+  if (c >= q * 1000) return c / q;
+  // Otherwise assume already unitary.
+  return c;
+}
 
 function Tech() {
   const { data, isLoading } = useQuery({
