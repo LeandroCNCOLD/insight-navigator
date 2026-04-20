@@ -262,6 +262,7 @@ function Strategic() {
           clientesDetalhe: [],
           estados: {},
           cidades: {},
+          camarasPorCliente: [],
         } as PatternRow);
 
       cur.count++;
