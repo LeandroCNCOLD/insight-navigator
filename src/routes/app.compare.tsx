@@ -159,7 +159,7 @@ function ComparePage() {
       />
 
       <Card className="p-4">
-        <div className="grid gap-3 md:grid-cols-[1.2fr_1fr_1fr]">
+        <div className="grid gap-3 md:grid-cols-[1.2fr_1fr]">
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
@@ -169,7 +169,21 @@ function ComparePage() {
               className="pl-9"
             />
           </div>
+          <select
+            className="h-10 w-full rounded-md border bg-background px-2 text-sm"
+            value={clientFilter}
+            onChange={(e) => { setClientFilter(e.target.value); setA(""); setB(""); }}
+          >
+            <option value="__all__">Todos os clientes ({clientGroups.length})</option>
+            {clientGroups.map((g) => (
+              <option key={g.key} value={g.key}>
+                {g.label}{g.cnpj ? ` · CNPJ ${g.cnpj}` : ""} · {g.count} proposta(s)
+              </option>
+            ))}
+          </select>
+        </div>
 
+        <div className="mt-3 grid gap-3 md:grid-cols-2">
           <ProposalPicker
             label="Proposta A — CN Cold"
             candidates={filtered.filter((c) => c.competitor?.is_house)}
@@ -188,7 +202,7 @@ function ComparePage() {
         </div>
 
         <div className="mt-2 text-xs text-muted-foreground">
-          Dica: você pode buscar por número da proposta, nome do cliente ou CNPJ. Os seletores estão separados por origem (CN Cold × Concorrente) para facilitar o cabeça-a-cabeça.
+          Dica: filtre por cliente para ver todas as propostas dele (um cliente pode ter várias) e compare CN Cold × concorrente entre elas.
         </div>
       </Card>
 
