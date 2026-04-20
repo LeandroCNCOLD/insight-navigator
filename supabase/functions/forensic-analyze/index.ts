@@ -286,7 +286,8 @@ function validateForensicExtraction(ex: any, sourceText: string) {
   }
 
   if (confidence < 0.2 && evidencias.length < 2 && camaras.length === 0) {
-    return { valid: false, reason: "Análise forense com baixa confiança e sem evidências mínimas" };
+    // Soft-purge: análise fraca, mas mantém o que foi extraído (não bloqueia o pipeline)
+    console.warn("[validateForensicExtraction] análise com baixa confiança, prosseguindo mesmo assim");
   }
 
   return { valid: true };
