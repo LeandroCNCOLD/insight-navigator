@@ -126,36 +126,30 @@ function ComparePage() {
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por cliente, número, arquivo, concorrente..."
+              placeholder="Filtrar por cliente, número, CNPJ, arquivo, concorrente..."
               className="pl-9"
             />
           </div>
 
-          <select
-            className="h-10 rounded-md border bg-background px-3 text-sm"
+          <ProposalPicker
+            label="Proposta A — CN Cold"
+            candidates={filtered.filter((c) => c.competitor?.is_house)}
             value={a}
-            onChange={(e) => setA(e.target.value)}
-          >
-            <option value="">Selecione a proposta A</option>
-            {filtered.map((item) => (
-              <option key={item.id} value={item.id}>
-                {labelForCandidate(item)}
-              </option>
-            ))}
-          </select>
+            onChange={setA}
+            tone="house"
+          />
 
-          <select
-            className="h-10 rounded-md border bg-background px-3 text-sm"
+          <ProposalPicker
+            label="Proposta B — Concorrente"
+            candidates={filtered.filter((c) => !c.competitor?.is_house)}
             value={b}
-            onChange={(e) => setB(e.target.value)}
-          >
-            <option value="">Selecione a proposta B</option>
-            {filtered.map((item) => (
-              <option key={item.id} value={item.id}>
-                {labelForCandidate(item)}
-              </option>
-            ))}
-          </select>
+            onChange={setB}
+            tone="rival"
+          />
+        </div>
+
+        <div className="mt-2 text-xs text-muted-foreground">
+          Dica: você pode buscar por número da proposta, nome do cliente ou CNPJ. Os seletores estão separados por origem (CN Cold × Concorrente) para facilitar o cabeça-a-cabeça.
         </div>
       </Card>
 
