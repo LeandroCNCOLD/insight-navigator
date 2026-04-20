@@ -1,283 +1,83 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
-import { formatDate } from "@/lib/format";
-import { History, ShieldCheck, FileSearch, Loader2 } from "lucide-react";
+import { CHANGELOG, APP_VERSION, APP_BUILD_DATE, type ChangelogEntry } from "@/lib/changelog";
+import { Sparkles, Bug, Wrench, AlertTriangle, Tag, Calendar } from "lucide-react";
 
 export const Route = createFileRoute("/app/settings/versions")({
-  component: VersionsTab,
+  component: VersionsPage,
+  head: () => ({ meta: [{ title: "Versões & Revisões — DocIntel" }] }),
 });
 
-const subtabs = [
-  { id: "reviews", label: "Revisões de propostas", icon: History },
-  { id: "audit", label: "Log de auditoria", icon: ShieldCheck },
-  { id: "forensic", label: "Versões forenses", icon: FileSearch },
-] as const;
+const typeConfig: Record<ChangelogEntry["type"], { label: string; icon: typeof Sparkles; className: string }> = {
+  feature: { label: "Funcionalidade", icon: Sparkles, className: "bg-primary/15 text-primary border-primary/30" },
+  improvement: { label: "Melhoria", icon: Wrench, className: "bg-blue-500/15 text-blue-400 border-blue-500/30" },
+  fix: { label: "Correção", icon: Bug, className: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
+  breaking: { label: "Mudança crítica", icon: AlertTriangle, className: "bg-red-500/15 text-red-400 border-red-500/30" },
+};
 
-type SubTab = (typeof subtabs)[number]["id"];
-
-function VersionsTab() {
-  const [tab, setTab] = useState<SubTab>("reviews");
+function VersionsPage() {
   return (
-    <div className="space-y-4">
-      <div className="flex gap-2 flex-wrap">
-        {subtabs.map((s) => {
-          const Icon = s.icon;
+    <div className="space-y-5">
+      <Card className="p-5 gradient-surface border-border">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Tag className="size-3" />
+              Versão atual do sistema
+            </div>
+            <div className="text-2xl font-semibold tracking-tight mt-1">v{APP_VERSION}</div>
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
+              <Calendar className="size-3" />
+              Build de {new Date(APP_BUILD_DATE).toLocaleDateString("pt-BR")}
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Histórico</div>
+            <div className="text-sm font-medium">{CHANGELOG.length} versões publicadas</div>
+          </div>
+        </div>
+      </Card>
+
+      <div className="space-y-3">
+        {CHANGELOG.map((entry, i) => {
+          const cfg = typeConfig[entry.type];
+          const Icon = cfg.icon;
+          const isLatest = i === 0;
           return (
-            <button
-              key={s.id}
-              onClick={() => setTab(s.id)}
-              className={cn(
-                "px-3 py-1.5 rounded-md text-xs flex items-center gap-1.5 border",
-                tab === s.id
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "border-border text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <Icon className="h-3 w-3" />
-              {s.label}
-            </button>
+            <Card key={entry.version} className="p-5 gradient-surface border-border">
+              <div className="flex items-start justify-between gap-4 flex-wrap mb-3">
+                <div className="flex items-start gap-3">
+                  <div className="size-9 rounded-md bg-muted/40 flex items-center justify-center shrink-0">
+                    <Icon className="size-4 text-foreground" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-semibold text-sm">v{entry.version}</h3>
+                      <Badge variant="outline" className={cfg.className}>{cfg.label}</Badge>
+                      {isLatest && (
+                        <Badge className="bg-primary/20 text-primary border-primary/30">Atual</Badge>
+                      )}
+                    </div>
+                    <p className="text-sm font-medium mt-1">{entry.title}</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      {new Date(entry.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <ul className="space-y-1.5 ml-12">
+                {entry.changes.map((c, j) => (
+                  <li key={j} className="text-xs text-muted-foreground flex gap-2">
+                    <span className="text-primary mt-0.5">•</span>
+                    <span>{c}</span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
           );
         })}
       </div>
-      {tab === "reviews" && <ReviewsTable />}
-      {tab === "audit" && <AuditTable />}
-      {tab === "forensic" && <ForensicTable />}
     </div>
   );
-}
-
-function ReviewsTable() {
-  const [filter, setFilter] = useState("");
-  const { data, isLoading } = useQuery({
-    queryKey: ["proposal-review-events"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("proposal_review_events")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(500);
-      return data ?? [];
-    },
-  });
-  const filtered = (data ?? []).filter(
-    (r) =>
-      !filter ||
-      r.action?.toLowerCase().includes(filter.toLowerCase()) ||
-      r.field_name?.toLowerCase().includes(filter.toLowerCase())
-  );
-  return (
-    <Card className="gradient-surface border-border overflow-hidden">
-      <div className="p-3 border-b border-border flex items-center gap-2">
-        <Label className="text-xs text-muted-foreground">Filtrar:</Label>
-        <Input
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          placeholder="ação ou campo..."
-          className="h-7 text-xs max-w-xs"
-        />
-        <span className="text-xs text-muted-foreground ml-auto">
-          {filtered.length} registro(s)
-        </span>
-      </div>
-      {isLoading ? (
-        <Loading />
-      ) : (
-        <table className="w-full text-sm">
-          <thead className="bg-muted/30 text-xs uppercase tracking-wider text-muted-foreground">
-            <tr>
-              <th className="text-left px-4 py-2.5 font-medium">Quando</th>
-              <th className="text-left px-4 py-2.5 font-medium">Ação</th>
-              <th className="text-left px-4 py-2.5 font-medium">Campo</th>
-              <th className="text-left px-4 py-2.5 font-medium">Valor anterior</th>
-              <th className="text-left px-4 py-2.5 font-medium">Novo valor</th>
-              <th className="text-left px-4 py-2.5 font-medium">Comentário</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {filtered.map((r) => (
-              <tr key={r.id}>
-                <td className="px-4 py-2 text-xs text-muted-foreground whitespace-nowrap">
-                  {formatDate(r.created_at)}
-                </td>
-                <td className="px-4 py-2">
-                  <Badge variant="outline" className="text-[10px]">{r.action}</Badge>
-                </td>
-                <td className="px-4 py-2 text-xs">{r.field_name ?? "—"}</td>
-                <td className="px-4 py-2 text-xs text-muted-foreground max-w-[180px] truncate">
-                  {jsonPreview(r.old_value)}
-                </td>
-                <td className="px-4 py-2 text-xs max-w-[180px] truncate">
-                  {jsonPreview(r.new_value)}
-                </td>
-                <td className="px-4 py-2 text-xs text-muted-foreground">{r.comment ?? "—"}</td>
-              </tr>
-            ))}
-            {filtered.length === 0 && <Empty colSpan={6} />}
-          </tbody>
-        </table>
-      )}
-    </Card>
-  );
-}
-
-function AuditTable() {
-  const [filter, setFilter] = useState("");
-  const { data, isLoading } = useQuery({
-    queryKey: ["audit-logs-full"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("audit_logs")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(500);
-      return data ?? [];
-    },
-  });
-  const filtered = (data ?? []).filter(
-    (r) =>
-      !filter ||
-      r.acao?.toLowerCase().includes(filter.toLowerCase()) ||
-      r.entidade?.toLowerCase().includes(filter.toLowerCase())
-  );
-  return (
-    <Card className="gradient-surface border-border overflow-hidden">
-      <div className="p-3 border-b border-border flex items-center gap-2">
-        <Label className="text-xs text-muted-foreground">Filtrar:</Label>
-        <Input
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          placeholder="ação ou entidade..."
-          className="h-7 text-xs max-w-xs"
-        />
-        <span className="text-xs text-muted-foreground ml-auto">
-          {filtered.length} registro(s)
-        </span>
-      </div>
-      {isLoading ? (
-        <Loading />
-      ) : (
-        <table className="w-full text-sm">
-          <thead className="bg-muted/30 text-xs uppercase tracking-wider text-muted-foreground">
-            <tr>
-              <th className="text-left px-4 py-2.5 font-medium">Quando</th>
-              <th className="text-left px-4 py-2.5 font-medium">Ação</th>
-              <th className="text-left px-4 py-2.5 font-medium">Entidade</th>
-              <th className="text-left px-4 py-2.5 font-medium">ID</th>
-              <th className="text-left px-4 py-2.5 font-medium">Payload</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {filtered.map((l) => (
-              <tr key={l.id}>
-                <td className="px-4 py-2 text-xs text-muted-foreground whitespace-nowrap">
-                  {formatDate(l.created_at)}
-                </td>
-                <td className="px-4 py-2">
-                  <Badge variant="outline" className="text-[10px]">{l.acao}</Badge>
-                </td>
-                <td className="px-4 py-2 text-xs">{l.entidade ?? "—"}</td>
-                <td className="px-4 py-2 text-[10px] font-mono text-muted-foreground">
-                  {l.entidade_id?.slice(0, 8) ?? "—"}
-                </td>
-                <td className="px-4 py-2 text-xs text-muted-foreground max-w-[300px] truncate">
-                  {jsonPreview(l.payload)}
-                </td>
-              </tr>
-            ))}
-            {filtered.length === 0 && <Empty colSpan={5} />}
-          </tbody>
-        </table>
-      )}
-    </Card>
-  );
-}
-
-function ForensicTable() {
-  const { data, isLoading } = useQuery({
-    queryKey: ["forensic-versions"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("forensic_analyses")
-        .select("id, document_id, versao, modelo_ia, score_global, tipo_documento, created_at, updated_at")
-        .order("created_at", { ascending: false })
-        .limit(500);
-      return data ?? [];
-    },
-  });
-  return (
-    <Card className="gradient-surface border-border overflow-hidden">
-      {isLoading ? (
-        <Loading />
-      ) : (
-        <table className="w-full text-sm">
-          <thead className="bg-muted/30 text-xs uppercase tracking-wider text-muted-foreground">
-            <tr>
-              <th className="text-left px-4 py-2.5 font-medium">Documento</th>
-              <th className="text-left px-4 py-2.5 font-medium">Versão</th>
-              <th className="text-left px-4 py-2.5 font-medium">Tipo</th>
-              <th className="text-left px-4 py-2.5 font-medium">Modelo IA</th>
-              <th className="text-left px-4 py-2.5 font-medium">Score</th>
-              <th className="text-left px-4 py-2.5 font-medium">Atualizado</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {(data ?? []).map((f) => (
-              <tr key={f.id}>
-                <td className="px-4 py-2 text-[10px] font-mono text-muted-foreground">
-                  {f.document_id?.slice(0, 8)}
-                </td>
-                <td className="px-4 py-2">
-                  <Badge variant="outline" className="text-[10px]">v{f.versao}</Badge>
-                </td>
-                <td className="px-4 py-2 text-xs">{f.tipo_documento ?? "—"}</td>
-                <td className="px-4 py-2 text-xs text-muted-foreground">{f.modelo_ia ?? "—"}</td>
-                <td className="px-4 py-2 text-xs">
-                  {f.score_global != null ? Number(f.score_global).toFixed(1) : "—"}
-                </td>
-                <td className="px-4 py-2 text-xs text-muted-foreground whitespace-nowrap">
-                  {formatDate(f.updated_at)}
-                </td>
-              </tr>
-            ))}
-            {(data ?? []).length === 0 && <Empty colSpan={6} />}
-          </tbody>
-        </table>
-      )}
-    </Card>
-  );
-}
-
-function Loading() {
-  return (
-    <div className="p-8 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
-      <Loader2 className="h-4 w-4 animate-spin" /> Carregando...
-    </div>
-  );
-}
-
-function Empty({ colSpan }: { colSpan: number }) {
-  return (
-    <tr>
-      <td colSpan={colSpan} className="px-4 py-8 text-center text-xs text-muted-foreground">
-        Nenhum registro encontrado.
-      </td>
-    </tr>
-  );
-}
-
-function jsonPreview(v: any): string {
-  if (v == null) return "—";
-  if (typeof v === "string") return v;
-  try {
-    return JSON.stringify(v);
-  } catch {
-    return String(v);
-  }
 }
