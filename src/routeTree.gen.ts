@@ -31,11 +31,13 @@ import { Route as AppClientsRouteImport } from './routes/app.clients'
 import { Route as AppAuditRouteImport } from './routes/app.audit'
 import { Route as AppSettingsIndexRouteImport } from './routes/app.settings.index'
 import { Route as AppDocumentsIndexRouteImport } from './routes/app.documents.index'
+import { Route as AppUploadCncodeRouteImport } from './routes/app.upload.cncode'
 import { Route as AppSettingsVersionsRouteImport } from './routes/app.settings.versions'
 import { Route as AppSettingsUsersRouteImport } from './routes/app.settings.users'
 import { Route as AppDocumentsIdRouteImport } from './routes/app.documents.$id'
 import { Route as AppDashboardsTechnicalRouteImport } from './routes/app.dashboards.technical'
 import { Route as AppDashboardsStrategicRouteImport } from './routes/app.dashboards.strategic'
+import { Route as AppDashboardsHeadToHeadRouteImport } from './routes/app.dashboards.head-to-head'
 import { Route as AppDashboardsGeographicRouteImport } from './routes/app.dashboards.geographic'
 import { Route as AppDashboardsContractualRouteImport } from './routes/app.dashboards.contractual'
 import { Route as AppDashboardsCommercialRouteImport } from './routes/app.dashboards.commercial'
@@ -152,6 +154,11 @@ const AppDocumentsIndexRoute = AppDocumentsIndexRouteImport.update({
   path: '/documents/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppUploadCncodeRoute = AppUploadCncodeRouteImport.update({
+  id: '/cncode',
+  path: '/cncode',
+  getParentRoute: () => AppUploadRoute,
+} as any)
 const AppSettingsVersionsRoute = AppSettingsVersionsRouteImport.update({
   id: '/versions',
   path: '/versions',
@@ -175,6 +182,11 @@ const AppDashboardsTechnicalRoute = AppDashboardsTechnicalRouteImport.update({
 const AppDashboardsStrategicRoute = AppDashboardsStrategicRouteImport.update({
   id: '/dashboards/strategic',
   path: '/dashboards/strategic',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDashboardsHeadToHeadRoute = AppDashboardsHeadToHeadRouteImport.update({
+  id: '/dashboards/head-to-head',
+  path: '/dashboards/head-to-head',
   getParentRoute: () => AppRoute,
 } as any)
 const AppDashboardsGeographicRoute = AppDashboardsGeographicRouteImport.update({
@@ -223,17 +235,19 @@ export interface FileRoutesByFullPath {
   '/app/recommend': typeof AppRecommendRoute
   '/app/review': typeof AppReviewRoute
   '/app/settings': typeof AppSettingsRouteWithChildren
-  '/app/upload': typeof AppUploadRoute
+  '/app/upload': typeof AppUploadRouteWithChildren
   '/app/': typeof AppIndexRoute
   '/app/competitors/$nome': typeof AppCompetitorsNomeRoute
   '/app/dashboards/commercial': typeof AppDashboardsCommercialRoute
   '/app/dashboards/contractual': typeof AppDashboardsContractualRoute
   '/app/dashboards/geographic': typeof AppDashboardsGeographicRoute
+  '/app/dashboards/head-to-head': typeof AppDashboardsHeadToHeadRoute
   '/app/dashboards/strategic': typeof AppDashboardsStrategicRoute
   '/app/dashboards/technical': typeof AppDashboardsTechnicalRoute
   '/app/documents/$id': typeof AppDocumentsIdRouteWithChildren
   '/app/settings/users': typeof AppSettingsUsersRoute
   '/app/settings/versions': typeof AppSettingsVersionsRoute
+  '/app/upload/cncode': typeof AppUploadCncodeRoute
   '/app/documents/': typeof AppDocumentsIndexRoute
   '/app/settings/': typeof AppSettingsIndexRoute
   '/app/documents/$id/forensic': typeof AppDocumentsIdForensicRoute
@@ -255,17 +269,19 @@ export interface FileRoutesByTo {
   '/app/queue': typeof AppQueueRoute
   '/app/recommend': typeof AppRecommendRoute
   '/app/review': typeof AppReviewRoute
-  '/app/upload': typeof AppUploadRoute
+  '/app/upload': typeof AppUploadRouteWithChildren
   '/app': typeof AppIndexRoute
   '/app/competitors/$nome': typeof AppCompetitorsNomeRoute
   '/app/dashboards/commercial': typeof AppDashboardsCommercialRoute
   '/app/dashboards/contractual': typeof AppDashboardsContractualRoute
   '/app/dashboards/geographic': typeof AppDashboardsGeographicRoute
+  '/app/dashboards/head-to-head': typeof AppDashboardsHeadToHeadRoute
   '/app/dashboards/strategic': typeof AppDashboardsStrategicRoute
   '/app/dashboards/technical': typeof AppDashboardsTechnicalRoute
   '/app/documents/$id': typeof AppDocumentsIdRouteWithChildren
   '/app/settings/users': typeof AppSettingsUsersRoute
   '/app/settings/versions': typeof AppSettingsVersionsRoute
+  '/app/upload/cncode': typeof AppUploadCncodeRoute
   '/app/documents': typeof AppDocumentsIndexRoute
   '/app/settings': typeof AppSettingsIndexRoute
   '/app/documents/$id/forensic': typeof AppDocumentsIdForensicRoute
@@ -290,17 +306,19 @@ export interface FileRoutesById {
   '/app/recommend': typeof AppRecommendRoute
   '/app/review': typeof AppReviewRoute
   '/app/settings': typeof AppSettingsRouteWithChildren
-  '/app/upload': typeof AppUploadRoute
+  '/app/upload': typeof AppUploadRouteWithChildren
   '/app/': typeof AppIndexRoute
   '/app/competitors/$nome': typeof AppCompetitorsNomeRoute
   '/app/dashboards/commercial': typeof AppDashboardsCommercialRoute
   '/app/dashboards/contractual': typeof AppDashboardsContractualRoute
   '/app/dashboards/geographic': typeof AppDashboardsGeographicRoute
+  '/app/dashboards/head-to-head': typeof AppDashboardsHeadToHeadRoute
   '/app/dashboards/strategic': typeof AppDashboardsStrategicRoute
   '/app/dashboards/technical': typeof AppDashboardsTechnicalRoute
   '/app/documents/$id': typeof AppDocumentsIdRouteWithChildren
   '/app/settings/users': typeof AppSettingsUsersRoute
   '/app/settings/versions': typeof AppSettingsVersionsRoute
+  '/app/upload/cncode': typeof AppUploadCncodeRoute
   '/app/documents/': typeof AppDocumentsIndexRoute
   '/app/settings/': typeof AppSettingsIndexRoute
   '/app/documents/$id/forensic': typeof AppDocumentsIdForensicRoute
@@ -332,11 +350,13 @@ export interface FileRouteTypes {
     | '/app/dashboards/commercial'
     | '/app/dashboards/contractual'
     | '/app/dashboards/geographic'
+    | '/app/dashboards/head-to-head'
     | '/app/dashboards/strategic'
     | '/app/dashboards/technical'
     | '/app/documents/$id'
     | '/app/settings/users'
     | '/app/settings/versions'
+    | '/app/upload/cncode'
     | '/app/documents/'
     | '/app/settings/'
     | '/app/documents/$id/forensic'
@@ -364,11 +384,13 @@ export interface FileRouteTypes {
     | '/app/dashboards/commercial'
     | '/app/dashboards/contractual'
     | '/app/dashboards/geographic'
+    | '/app/dashboards/head-to-head'
     | '/app/dashboards/strategic'
     | '/app/dashboards/technical'
     | '/app/documents/$id'
     | '/app/settings/users'
     | '/app/settings/versions'
+    | '/app/upload/cncode'
     | '/app/documents'
     | '/app/settings'
     | '/app/documents/$id/forensic'
@@ -398,11 +420,13 @@ export interface FileRouteTypes {
     | '/app/dashboards/commercial'
     | '/app/dashboards/contractual'
     | '/app/dashboards/geographic'
+    | '/app/dashboards/head-to-head'
     | '/app/dashboards/strategic'
     | '/app/dashboards/technical'
     | '/app/documents/$id'
     | '/app/settings/users'
     | '/app/settings/versions'
+    | '/app/upload/cncode'
     | '/app/documents/'
     | '/app/settings/'
     | '/app/documents/$id/forensic'
@@ -571,6 +595,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppDocumentsIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/upload/cncode': {
+      id: '/app/upload/cncode'
+      path: '/cncode'
+      fullPath: '/app/upload/cncode'
+      preLoaderRoute: typeof AppUploadCncodeRouteImport
+      parentRoute: typeof AppUploadRoute
+    }
     '/app/settings/versions': {
       id: '/app/settings/versions'
       path: '/versions'
@@ -604,6 +635,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboards/strategic'
       fullPath: '/app/dashboards/strategic'
       preLoaderRoute: typeof AppDashboardsStrategicRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/dashboards/head-to-head': {
+      id: '/app/dashboards/head-to-head'
+      path: '/dashboards/head-to-head'
+      fullPath: '/app/dashboards/head-to-head'
+      preLoaderRoute: typeof AppDashboardsHeadToHeadRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/dashboards/geographic': {
@@ -672,6 +710,18 @@ const AppSettingsRouteWithChildren = AppSettingsRoute._addFileChildren(
   AppSettingsRouteChildren,
 )
 
+interface AppUploadRouteChildren {
+  AppUploadCncodeRoute: typeof AppUploadCncodeRoute
+}
+
+const AppUploadRouteChildren: AppUploadRouteChildren = {
+  AppUploadCncodeRoute: AppUploadCncodeRoute,
+}
+
+const AppUploadRouteWithChildren = AppUploadRoute._addFileChildren(
+  AppUploadRouteChildren,
+)
+
 interface AppDocumentsIdRouteChildren {
   AppDocumentsIdForensicRoute: typeof AppDocumentsIdForensicRoute
 }
@@ -699,11 +749,12 @@ interface AppRouteChildren {
   AppRecommendRoute: typeof AppRecommendRoute
   AppReviewRoute: typeof AppReviewRoute
   AppSettingsRoute: typeof AppSettingsRouteWithChildren
-  AppUploadRoute: typeof AppUploadRoute
+  AppUploadRoute: typeof AppUploadRouteWithChildren
   AppIndexRoute: typeof AppIndexRoute
   AppDashboardsCommercialRoute: typeof AppDashboardsCommercialRoute
   AppDashboardsContractualRoute: typeof AppDashboardsContractualRoute
   AppDashboardsGeographicRoute: typeof AppDashboardsGeographicRoute
+  AppDashboardsHeadToHeadRoute: typeof AppDashboardsHeadToHeadRoute
   AppDashboardsStrategicRoute: typeof AppDashboardsStrategicRoute
   AppDashboardsTechnicalRoute: typeof AppDashboardsTechnicalRoute
   AppDocumentsIdRoute: typeof AppDocumentsIdRouteWithChildren
@@ -725,11 +776,12 @@ const AppRouteChildren: AppRouteChildren = {
   AppRecommendRoute: AppRecommendRoute,
   AppReviewRoute: AppReviewRoute,
   AppSettingsRoute: AppSettingsRouteWithChildren,
-  AppUploadRoute: AppUploadRoute,
+  AppUploadRoute: AppUploadRouteWithChildren,
   AppIndexRoute: AppIndexRoute,
   AppDashboardsCommercialRoute: AppDashboardsCommercialRoute,
   AppDashboardsContractualRoute: AppDashboardsContractualRoute,
   AppDashboardsGeographicRoute: AppDashboardsGeographicRoute,
+  AppDashboardsHeadToHeadRoute: AppDashboardsHeadToHeadRoute,
   AppDashboardsStrategicRoute: AppDashboardsStrategicRoute,
   AppDashboardsTechnicalRoute: AppDashboardsTechnicalRoute,
   AppDocumentsIdRoute: AppDocumentsIdRouteWithChildren,
