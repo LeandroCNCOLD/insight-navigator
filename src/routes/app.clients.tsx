@@ -178,7 +178,11 @@ function Clients() {
                     <div className="flex items-center gap-2">
                       <Building2 className="size-3.5 text-muted-foreground" />
                       <div>
-                        <div className="font-medium">{c.nome}</div>
+                        <div className="font-medium flex items-center gap-1.5 flex-wrap">
+                          {c.nome}
+                          {c.origens.house && <Badge variant="outline" className="text-[9px] border-success/40 text-success">CN Cold</Badge>}
+                          {c.origens.concorrente && <Badge variant="outline" className="text-[9px]">Concorrente</Badge>}
+                        </div>
                         {c.segmento && <div className="text-[10px] text-muted-foreground">{c.segmento}</div>}
                       </div>
                     </div>
