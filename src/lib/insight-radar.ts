@@ -109,7 +109,7 @@ export async function fetchInsightRadarData(): Promise<InsightRadarData> {
       garantia_meses,
       frete_tipo,
       status_proposta,
-      competitor:competitors(nome),
+      competitor:competitors!competitor_id(nome),
       client:clients(nome,estado),
       equipments(
         quantidade,

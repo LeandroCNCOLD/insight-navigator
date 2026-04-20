@@ -170,7 +170,7 @@ export async function fetchProductMarketData(): Promise<ProductMarketData> {
       data_proposta,
       status_proposta,
       score_confianca,
-      competitor:competitors(nome),
+      competitor:competitors!competitor_id(nome),
       client:clients(nome,estado,cidade,segmento),
       equipments(
         quantidade,

@@ -84,7 +84,7 @@ export async function fetchCompareCandidates(): Promise<ProposalCompareCandidate
       status_proposta,
       score_confianca,
       client:clients(nome,estado,cnpj),
-      competitor:competitors(nome,is_house),
+      competitor:competitors!competitor_id(nome,is_house),
       document:documents(file_name)
     `)
     .order("data_proposta", { ascending: false });
@@ -99,7 +99,7 @@ export async function fetchProposalCompareDetail(proposalId: string): Promise<Pr
     .select(`
       *,
       client:clients(nome,estado,cidade),
-      competitor:competitors(nome),
+      competitor:competitors!competitor_id(nome),
       document:documents(id,file_name,tem_analise_forense)
     `)
     .eq("id", proposalId)

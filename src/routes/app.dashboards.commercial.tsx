@@ -21,7 +21,7 @@ function Dash() {
   const { data } = useQuery({
     queryKey: ["dash-commercial"],
     queryFn: async () => {
-      const { data: props } = await supabase.from("proposals").select("*,client:clients(nome,estado),competitor:competitors(nome,is_house)");
+      const { data: props } = await supabase.from("proposals").select("*,client:clients(nome,estado),competitor:competitors!competitor_id(nome,is_house)");
       return props || [];
     },
   });

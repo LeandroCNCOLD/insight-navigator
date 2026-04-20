@@ -144,7 +144,7 @@ export async function generateRecommendation(input: RecommendationInput): Promis
       id,
       numero,
       valor_total,
-      competitor:competitors(nome),
+      competitor:competitors!competitor_id(nome),
       client:clients(nome,estado,cidade,segmento),
       equipments(
         quantidade,

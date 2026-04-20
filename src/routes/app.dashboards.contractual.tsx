@@ -16,7 +16,7 @@ function Contract() {
   const [origin, setOrigin] = useState<OriginValue>("all");
   const { data } = useQuery({
     queryKey: ["dash-contract"],
-    queryFn: async () => (await supabase.from("proposals").select("garantia_meses,prazo_entrega_dias,frete_tipo,frete_incluso,instalacao_inclusa,garantia_limitacoes,competitor:competitors(nome,is_house)")).data || [],
+    queryFn: async () => (await supabase.from("proposals").select("garantia_meses,prazo_entrega_dias,frete_tipo,frete_incluso,instalacao_inclusa,garantia_limitacoes,competitor:competitors!competitor_id(nome,is_house)")).data || [],
   });
 
   const counts = useMemo(() => {

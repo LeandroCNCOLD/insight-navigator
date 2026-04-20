@@ -47,7 +47,7 @@ async function fetchHeadToHead(): Promise<{ pairs: Pair[]; allRows: Row[] }> {
     .select(
       `id, client_id, competitor_id, valor_total, status_proposta, prazo_entrega_dias, garantia_meses, condicao_pagamento, numero, data_proposta, dados_tecnicos,
        client:clients(nome,estado,cnpj),
-       competitor:competitors(nome,is_house)`,
+       competitor:competitors!competitor_id(nome,is_house)`,
     )
     .not("client_id", "is", null);
   if (error) throw error;

@@ -20,7 +20,7 @@ function Proposals() {
     queryKey: ["proposals"],
     queryFn: async () => {
       const { data } = await supabase.from("proposals")
-        .select("*,document:documents(file_name),client:clients(nome,estado),competitor:competitors(nome,is_house)")
+        .select("*,document:documents(file_name),client:clients(nome,estado),competitor:competitors!competitor_id(nome,is_house)")
         .order("data_proposta", { ascending: false });
       return data || [];
     },
