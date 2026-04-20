@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.head-to-head-ai]
 verify_jwt = false
+
+[functions.head-to-head-pair-ai]
+verify_jwt = false

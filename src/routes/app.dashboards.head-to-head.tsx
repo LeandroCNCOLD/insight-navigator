@@ -105,7 +105,9 @@ function HeadToHeadPage() {
   const [manualSearch, setManualSearch] = useState("");
   const [clientFilter, setClientFilter] = useState<string>("__all__");
   const [manualExplain, setManualExplain] = useState<string | null>(null);
+  const [manualComparison, setManualComparison] = useState<any | null>(null);
   const [manualLoading, setManualLoading] = useState(false);
+  const [manualResultado, setManualResultado] = useState<"ganhou" | "perdeu" | "em_aberto">("em_aberto");
 
   const norm = (s: string | null | undefined) =>
     (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
@@ -234,40 +236,30 @@ function HeadToHeadPage() {
     if (!manualHouse || !manualRival) return;
     setManualLoading(true);
     setManualExplain(null);
+    setManualComparison(null);
     try {
-      const ctx = {
-        cliente_casa: manualHouse.client?.nome,
-        cliente_rival: manualRival.client?.nome,
-        casa: {
-          fornecedor: manualHouse.competitor?.nome,
-          numero: manualHouse.numero,
-          valor: manualHouse.valor_total,
-          prazo_entrega_dias: manualHouse.prazo_entrega_dias,
-          garantia_meses: manualHouse.garantia_meses,
-          pagamento: manualHouse.condicao_pagamento,
-          status: manualHouse.status_proposta,
-          tecnico: manualHouse.dados_tecnicos,
+      const { data, error } = await supabase.functions.invoke("head-to-head-pair-ai", {
+        body: {
+          house_proposal_id: manualHouse.id,
+          rival_proposal_id: manualRival.id,
+          resultado: manualResultado,
         },
-        concorrente: {
-          fornecedor: manualRival.competitor?.nome,
-          numero: manualRival.numero,
-          valor: manualRival.valor_total,
-          prazo_entrega_dias: manualRival.prazo_entrega_dias,
-          garantia_meses: manualRival.garantia_meses,
-          pagamento: manualRival.condicao_pagamento,
-          status: manualRival.status_proposta,
-          tecnico: manualRival.dados_tecnicos,
-        },
-      };
-      const pergunta = `Compare estas duas propostas (uma da CN Cold e uma do concorrente ${manualRival.competitor?.nome || ""}) selecionadas manualmente. Aponte: (1) quem está mais barato e Δ%; (2) Δ prazo, Δ garantia, diferenças de pagamento; (3) provável motivo de decisão; (4) recomendação acionável para a CN Cold no próximo confronto. Contexto JSON: ${JSON.stringify(ctx)}`;
-      const { data, error } = await supabase.functions.invoke("market-intelligence", {
-        body: { question: pergunta, context: ctx },
       });
       if (error) throw error;
-      const answer = (data as any)?.answer || (data as any)?.response || (data as any)?.text || JSON.stringify(data);
-      setManualExplain(answer);
+      const d = data as any;
+      if (d?.error) throw new Error(d.error);
+      setManualExplain(d?.analysis || "Sem análise.");
+      setManualComparison(d?.comparison || null);
+
+      await supabase.from("proposal_review_events").insert({
+        proposal_id: manualHouse.id,
+        action: "comment",
+        comment: `[Head-to-Head vs ${manualRival.competitor?.nome} · resultado: ${manualResultado}] ${(d?.analysis || "").slice(0, 4500)}`,
+      } as any);
+
+      toast.success("Análise IA do par gerada.");
     } catch (e: any) {
-      toast.error(`Falha ao analisar par manual: ${e.message || e}`);
+      toast.error(`Falha ao analisar par: ${e.message || e}`);
     } finally {
       setManualLoading(false);
     }
@@ -411,16 +403,33 @@ function HeadToHeadPage() {
           </div>
         )}
         <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1 rounded-md border bg-background p-1">
+            <span className="text-[11px] uppercase tracking-wider text-muted-foreground px-2">Resultado CN Cold:</span>
+            {(["ganhou", "perdeu", "em_aberto"] as const).map((r) => (
+              <Button
+                key={r}
+                size="sm"
+                variant={manualResultado === r ? "default" : "ghost"}
+                className="h-7 text-xs"
+                onClick={() => setManualResultado(r)}
+              >
+                {r === "ganhou" ? "✅ Ganhou" : r === "perdeu" ? "❌ Perdeu" : "⏳ Em aberto"}
+              </Button>
+            ))}
+          </div>
           <Button onClick={explainManual} disabled={!manualHouse || !manualRival || manualLoading}>
             {manualLoading ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Sparkles className="size-4 mr-2" />}
             Analisar par com IA
           </Button>
           {(manualHouseId || manualRivalId) && (
-            <Button variant="ghost" size="sm" onClick={() => { setManualHouseId(""); setManualRivalId(""); setManualExplain(null); }}>
+            <Button variant="ghost" size="sm" onClick={() => { setManualHouseId(""); setManualRivalId(""); setManualExplain(null); setManualComparison(null); }}>
               Limpar seleção
             </Button>
           )}
         </div>
+        {manualComparison && (
+          <ComparisonCharts comparison={manualComparison} houseLabel="CN Cold" rivalLabel={manualRival?.competitor?.nome || "Concorrente"} />
+        )}
         {manualExplain && (
           <div className="rounded-md border bg-background/60 p-4 prose prose-sm dark:prose-invert max-w-none">
             <ReactMarkdown>{manualExplain}</ReactMarkdown>
@@ -534,6 +543,123 @@ function PropBox({ label, tone, row }: { label: string; tone: "house" | "rival";
         <div className="col-span-2 truncate">Pgto: {row.condicao_pagamento || "—"}</div>
         {row.numero && <div className="col-span-2 truncate">Nº {row.numero}</div>}
       </div>
+    </div>
+  );
+}
+
+function MetricBar({
+  label,
+  cncold,
+  rival,
+  format,
+  betterWhen,
+  houseLabel,
+  rivalLabel,
+}: {
+  label: string;
+  cncold: number | null | undefined;
+  rival: number | null | undefined;
+  format: (v: number | null | undefined) => string;
+  betterWhen: "lower" | "higher";
+  houseLabel: string;
+  rivalLabel: string;
+}) {
+  if (cncold == null && rival == null) return null;
+  const max = Math.max(Number(cncold) || 0, Number(rival) || 0) || 1;
+  const houseWins =
+    cncold != null && rival != null
+      ? betterWhen === "lower" ? cncold < rival : cncold > rival
+      : null;
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between text-xs">
+        <span className="font-medium">{label}</span>
+        {houseWins != null && (
+          <Badge variant={houseWins ? "default" : "destructive"} className="text-[10px]">
+            {houseWins ? `${houseLabel} melhor` : `${rivalLabel} melhor`}
+          </Badge>
+        )}
+      </div>
+      <div className="space-y-1.5">
+        <div className="flex items-center gap-2">
+          <span className="w-20 text-[11px] text-muted-foreground truncate">{houseLabel}</span>
+          <div className="flex-1 h-3 rounded bg-muted overflow-hidden">
+            <div className="h-full bg-success" style={{ width: `${((Number(cncold) || 0) / max) * 100}%` }} />
+          </div>
+          <span className="w-24 text-right text-[11px] tabular-nums">{format(cncold)}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="w-20 text-[11px] text-muted-foreground truncate">{rivalLabel}</span>
+          <div className="flex-1 h-3 rounded bg-muted overflow-hidden">
+            <div className="h-full bg-primary" style={{ width: `${((Number(rival) || 0) / max) * 100}%` }} />
+          </div>
+          <span className="w-24 text-right text-[11px] tabular-nums">{format(rival)}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ComparisonCharts({
+  comparison,
+  houseLabel,
+  rivalLabel,
+}: {
+  comparison: any;
+  houseLabel: string;
+  rivalLabel: string;
+}) {
+  const c = comparison || {};
+  return (
+    <div className="rounded-md border bg-background/60 p-4 space-y-4">
+      <div className="text-sm font-semibold flex items-center gap-2">
+        <Sparkles className="size-4 text-primary" /> Comparativo visual
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        <MetricBar
+          label="Preço total"
+          cncold={c.preco?.cncold}
+          rival={c.preco?.concorrente}
+          format={(v) => formatBRL(v)}
+          betterWhen="lower"
+          houseLabel={houseLabel}
+          rivalLabel={rivalLabel}
+        />
+        <MetricBar
+          label="Prazo de entrega (dias)"
+          cncold={c.prazo_dias?.cncold}
+          rival={c.prazo_dias?.concorrente}
+          format={(v) => (v != null ? `${v}d` : "—")}
+          betterWhen="lower"
+          houseLabel={houseLabel}
+          rivalLabel={rivalLabel}
+        />
+        <MetricBar
+          label="Garantia (meses)"
+          cncold={c.garantia_meses?.cncold}
+          rival={c.garantia_meses?.concorrente}
+          format={(v) => (v != null ? `${v}m` : "—")}
+          betterWhen="higher"
+          houseLabel={houseLabel}
+          rivalLabel={rivalLabel}
+        />
+        <MetricBar
+          label="Capacidade total (kcal)"
+          cncold={c.capacidade_kcal_total?.cncold}
+          rival={c.capacidade_kcal_total?.concorrente}
+          format={(v) => (v ? `${Number(v).toLocaleString("pt-BR")} kcal` : "—")}
+          betterWhen="higher"
+          houseLabel={houseLabel}
+          rivalLabel={rivalLabel}
+        />
+      </div>
+      {c.preco?.delta_pct != null && (
+        <div className="text-xs text-muted-foreground">
+          Δ Preço CN Cold vs concorrente: <strong className={c.preco.delta_pct > 0 ? "text-destructive" : "text-success"}>
+            {c.preco.delta_pct > 0 ? "+" : ""}{c.preco.delta_pct.toFixed(1)}%
+          </strong> ({formatBRL(c.preco.delta_abs)})
+        </div>
+      )}
     </div>
   );
 }
