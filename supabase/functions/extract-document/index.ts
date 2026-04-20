@@ -435,15 +435,19 @@ function validateExtraction(extracted: any, sourceText: string) {
   if (cliente) {
     const compactClient = norm(cliente);
     const compactText = norm(text);
-    // Tolerate AI reordering / abbreviations: accept when full string is present
-    // OR when any significant word (>=4 chars) of the client name appears.
     const significantTokens = cliente
       .split(/\s+/)
       .map((t) => norm(t))
       .filter((t) => t.length >= 4);
     const anyWordHit = significantTokens.some((t) => compactText.includes(t));
     if (compactClient.length >= 6 && !compactText.includes(compactClient) && !anyWordHit) {
-      return { valid: false, reason: "Nome do cliente não aparece no texto fonte" };
+      // Soft-purge: AI hallucinou o cliente, mas o resto pode estar válido.
+      // Limpa os campos não-verificáveis e segue com a extração.
+      console.warn("[validateExtraction] cliente não bate com texto fonte, removendo:", cliente);
+      if (extracted) {
+        extracted.cliente_nome = null;
+        extracted.cliente_razao_social = null;
+      }
     }
   }
 
