@@ -191,6 +191,18 @@ function Strategic() {
     },
   });
 
+  const { data: clients } = useQuery<ClientRow[]>({
+    queryKey: ["dash-camara-clients"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("clients")
+        .select(
+          "id,nome,razao_social,cidade,estado,segmento,contato_nome,contato_cargo,telefone,whatsapp,email,endereco,cep,cnpj",
+        );
+      return (data || []) as unknown as ClientRow[];
+    },
+  });
+
   const patterns: PatternRow[] = useMemo(() => {
     if (!proposals) return [];
 
