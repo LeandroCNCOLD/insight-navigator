@@ -615,6 +615,66 @@ function PatternDetail({ row }: { row: PatternRow }) {
   const compressores = Object.entries(row.compressores).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
   const gases = Object.entries(row.gases).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
   const modelos = Object.entries(row.equipModelos).sort((a, b) => b[1].qtd - a[1].qtd);
+  const estados = Object.entries(row.estados).sort((a, b) => b[1] - a[1]);
+  const cidades = Object.entries(row.cidades).sort((a, b) => b[1] - a[1]);
+
+  const [routeLoading, setRouteLoading] = useState(false);
+  const [routeOpen, setRouteOpen] = useState(false);
+  const [routeText, setRouteText] = useState("");
+
+  async function gerarRoteiro() {
+    setRouteLoading(true);
+    setRouteText("");
+    try {
+      const payload = {
+        padrao: row.padrao,
+        technicalContext: {
+          dimensoes: formatDims(row),
+          area_m2: row.area_m2,
+          volume_m3: row.volume_m3,
+          temperatura_c: row.temperatura_alvo_c,
+          isolamento: row.isolamento_tipo,
+          espessura_mm: row.isolamento_espessura_mm,
+          produto: row.produto,
+          sistemas: row.sistemas,
+        },
+        clients: row.clientesDetalhe.map((cp) => ({
+          nome: cp.client.nome,
+          razao_social: cp.client.razao_social,
+          cnpj: cp.client.cnpj,
+          cidade: cp.client.cidade,
+          estado: cp.client.estado,
+          endereco: cp.client.endereco,
+          cep: cp.client.cep,
+          segmento: cp.client.segmento,
+          contato_nome: cp.client.contato_nome,
+          contato_cargo: cp.client.contato_cargo,
+          telefone: cp.client.telefone,
+          whatsapp: cp.client.whatsapp,
+          email: cp.client.email,
+          propostas: cp.propostas,
+          valor_total_cotado: cp.valorTotal,
+        })),
+      };
+      const { data, error } = await supabase.functions.invoke("visit-route-planner", {
+        body: payload,
+      });
+      if (error) throw error;
+      const errorMsg = (data as { error?: string } | null)?.error;
+      if (errorMsg) {
+        toast.error(errorMsg);
+        return;
+      }
+      setRouteText((data as { roteiro?: string } | null)?.roteiro || "Sem retorno do modelo.");
+      setRouteOpen(true);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Falha ao gerar roteiro.";
+      toast.error(message);
+    } finally {
+      setRouteLoading(false);
+    }
+  }
+
 
   return (
     <div className="space-y-4 pl-2 border-l-2 border-primary/30">
