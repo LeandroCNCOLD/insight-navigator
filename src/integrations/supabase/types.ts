@@ -788,6 +788,7 @@ export type Database = {
       proposals: {
         Row: {
           analise_tecnica_profunda: Json | null
+          camaras: Json | null
           clausulas: Json | null
           client_id: string | null
           competitor_id: string | null
@@ -831,6 +832,7 @@ export type Database = {
         }
         Insert: {
           analise_tecnica_profunda?: Json | null
+          camaras?: Json | null
           clausulas?: Json | null
           client_id?: string | null
           competitor_id?: string | null
@@ -874,6 +876,7 @@ export type Database = {
         }
         Update: {
           analise_tecnica_profunda?: Json | null
+          camaras?: Json | null
           clausulas?: Json | null
           client_id?: string | null
           competitor_id?: string | null
