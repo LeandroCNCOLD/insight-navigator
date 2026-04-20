@@ -316,6 +316,60 @@ export type Database = {
           },
         ]
       }
+      equipment_capacity_curves: {
+        Row: {
+          capacidade_kcal_h: number
+          created_at: string
+          fonte: string
+          gas_refrigerante: string | null
+          id: string
+          marca: string | null
+          modelo: string
+          observacoes: string | null
+          owner_id: string
+          potencia_hp: number | null
+          proposal_id: string | null
+          temp_ambiente_c: number | null
+          temp_evaporacao_c: number
+          tipo: string | null
+          updated_at: string
+        }
+        Insert: {
+          capacidade_kcal_h: number
+          created_at?: string
+          fonte?: string
+          gas_refrigerante?: string | null
+          id?: string
+          marca?: string | null
+          modelo: string
+          observacoes?: string | null
+          owner_id: string
+          potencia_hp?: number | null
+          proposal_id?: string | null
+          temp_ambiente_c?: number | null
+          temp_evaporacao_c: number
+          tipo?: string | null
+          updated_at?: string
+        }
+        Update: {
+          capacidade_kcal_h?: number
+          created_at?: string
+          fonte?: string
+          gas_refrigerante?: string | null
+          id?: string
+          marca?: string | null
+          modelo?: string
+          observacoes?: string | null
+          owner_id?: string
+          potencia_hp?: number | null
+          proposal_id?: string | null
+          temp_ambiente_c?: number | null
+          temp_evaporacao_c?: number
+          tipo?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       equipments: {
         Row: {
           capacidade_kcal: number | null
