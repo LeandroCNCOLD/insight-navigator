@@ -157,6 +157,22 @@ function DocsList() {
         </div>
       </div>
 
+      {selected.size > 0 && (
+        <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-md border border-primary/40 bg-primary/5">
+          <div className="text-sm">
+            <strong>{selected.size}</strong> documento(s) selecionado(s)
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>
+              <X className="size-4 mr-1.5" />Limpar
+            </Button>
+            <Button size="sm" onClick={reprocessSelected}>
+              <Sparkles className="size-4 mr-1.5" />Reprocessar selecionados
+            </Button>
+          </div>
+        </div>
+      )}
+
       {filtered.length === 0 ? (
         <EmptyState icon={FileText} title="Nenhum documento" description="Faça upload do primeiro arquivo para começar." action={
           <Link to="/app/upload"><Button>Fazer upload</Button></Link>
@@ -166,6 +182,13 @@ function DocsList() {
           <table className="w-full text-sm">
             <thead className="bg-muted/30 text-xs uppercase tracking-wider text-muted-foreground">
               <tr>
+                <th className="px-3 py-2.5 w-8">
+                  <Checkbox
+                    checked={allVisibleSelected ? true : someVisibleSelected ? "indeterminate" : false}
+                    onCheckedChange={toggleAllVisible}
+                    aria-label="Selecionar todos visíveis"
+                  />
+                </th>
                 <th className="text-left px-4 py-2.5 font-medium">Arquivo</th>
                 <th className="text-left px-4 py-2.5 font-medium">Fabricante</th>
                 <th className="text-left px-4 py-2.5 font-medium">Cliente</th>
