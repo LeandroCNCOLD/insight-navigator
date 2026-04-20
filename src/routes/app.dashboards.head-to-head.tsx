@@ -199,25 +199,47 @@ function HeadToHeadPage() {
     );
   }
 
-  if (!filtered.length) {
-    return (
-      <div className="p-6 space-y-6">
-        <PageHeader
-          title="Head-to-Head CN Cold × Concorrentes"
-          description="Onde a CN Cold disputou contra concorrentes e o que aconteceu."
-        />
-        <EmptyState
-          icon={Swords}
-          title="Sem disputas pareadas ainda"
-          description="Para aparecer aqui, é preciso ter pelo menos uma proposta da CN Cold e uma de concorrente para o mesmo cliente."
-          action={
-            <Link to="/app/upload/cncode">
-              <Button>Subir propostas CN Cold</Button>
-            </Link>
-          }
-        />
-      </div>
-    );
+  async function explainManual() {
+    if (!manualHouse || !manualRival) return;
+    setManualLoading(true);
+    setManualExplain(null);
+    try {
+      const ctx = {
+        cliente_casa: manualHouse.client?.nome,
+        cliente_rival: manualRival.client?.nome,
+        casa: {
+          fornecedor: manualHouse.competitor?.nome,
+          numero: manualHouse.numero,
+          valor: manualHouse.valor_total,
+          prazo_entrega_dias: manualHouse.prazo_entrega_dias,
+          garantia_meses: manualHouse.garantia_meses,
+          pagamento: manualHouse.condicao_pagamento,
+          status: manualHouse.status_proposta,
+          tecnico: manualHouse.dados_tecnicos,
+        },
+        concorrente: {
+          fornecedor: manualRival.competitor?.nome,
+          numero: manualRival.numero,
+          valor: manualRival.valor_total,
+          prazo_entrega_dias: manualRival.prazo_entrega_dias,
+          garantia_meses: manualRival.garantia_meses,
+          pagamento: manualRival.condicao_pagamento,
+          status: manualRival.status_proposta,
+          tecnico: manualRival.dados_tecnicos,
+        },
+      };
+      const pergunta = `Compare estas duas propostas (uma da CN Cold e uma do concorrente ${manualRival.competitor?.nome || ""}) selecionadas manualmente. Aponte: (1) quem está mais barato e Δ%; (2) Δ prazo, Δ garantia, diferenças de pagamento; (3) provável motivo de decisão; (4) recomendação acionável para a CN Cold no próximo confronto. Contexto JSON: ${JSON.stringify(ctx)}`;
+      const { data, error } = await supabase.functions.invoke("market-intelligence", {
+        body: { question: pergunta, context: ctx },
+      });
+      if (error) throw error;
+      const answer = (data as any)?.answer || (data as any)?.response || (data as any)?.text || JSON.stringify(data);
+      setManualExplain(answer);
+    } catch (e: any) {
+      toast.error(`Falha ao analisar par manual: ${e.message || e}`);
+    } finally {
+      setManualLoading(false);
+    }
   }
 
   return (
