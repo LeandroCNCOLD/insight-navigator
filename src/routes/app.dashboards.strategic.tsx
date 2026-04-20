@@ -159,10 +159,13 @@ type PatternRow = {
   potenciaMediaHp?: number;
   capacidadeMediaKcal?: number;
   proposalIds: string[];
-  // geo + clientes
-  clientesDetalhe: ClientPattern[];
-  estados: Record<string, number>; // estado → nº clientes
-  cidades: Record<string, number>; // "Cidade-UF" → nº clientes
+  // detalhamento por câmara (por cliente)
+  camarasPorCliente: Array<{
+    clientId: string | null;
+    clientNome: string;
+    proposalId: string;
+    camaras: CamaraJson[];
+  }>;
 };
 
 
