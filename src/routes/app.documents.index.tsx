@@ -203,8 +203,12 @@ function DocsList() {
             <tbody className="divide-y divide-border">
               {filtered.map((d: any) => {
                 const isReprocessing = reprocessingIds.has(d.id);
+                const isSelected = selected.has(d.id);
                 return (
-                  <tr key={d.id} className="hover:bg-muted/20">
+                  <tr key={d.id} className={`hover:bg-muted/20 ${isSelected ? "bg-primary/5" : ""}`}>
+                    <td className="px-3 py-2.5">
+                      <Checkbox checked={isSelected} onCheckedChange={() => toggleOne(d.id)} aria-label="Selecionar documento" />
+                    </td>
                     <td className="px-4 py-2.5">
                       <Link to="/app/documents/$id" params={{ id: d.id }} className="flex items-center gap-2 hover:text-primary">
                         <FileText className="size-3.5 text-muted-foreground" />
