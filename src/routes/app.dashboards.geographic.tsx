@@ -7,6 +7,7 @@ import { PageHeader, EmptyState } from "@/components/dashboard-bits";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -19,7 +20,9 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
+import { Calculator } from "lucide-react";
 import {
   ResponsiveContainer,
   BarChart,
