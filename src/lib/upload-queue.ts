@@ -25,6 +25,8 @@ export type QueueItem = {
   message?: string;
   documentId?: string;
   kind?: "upload" | "reprocess";
+  /** When set, the proposal will be linked to this competitor_id (used for "house" uploads — CN Code) bypassing manufacturer detection. */
+  houseCompetitorId?: string;
 };
 
 type Listener = (items: QueueItem[]) => void;
@@ -72,6 +74,20 @@ class UploadQueue {
       fileName: f.name,
       status: "pending",
       kind: "upload",
+    }));
+    this.items = [...this.items, ...newOnes];
+    this.emit();
+  }
+
+  /** Add files marked as "house" — proposal will be linked to the given competitor_id (CN Code) ignoring AI manufacturer detection. */
+  addHouse(files: File[], houseCompetitorId: string) {
+    const newOnes: QueueItem[] = files.map((f) => ({
+      id: crypto.randomUUID(),
+      file: f,
+      fileName: f.name,
+      status: "pending",
+      kind: "upload",
+      houseCompetitorId,
     }));
     this.items = [...this.items, ...newOnes];
     this.emit();
@@ -300,10 +316,12 @@ class UploadQueue {
         }
       }
 
-      // 5b) Resolve competitor (manufacturer) — fallback to "Conela" when not detected
-      const fabricanteNome = (ex.fabricante && String(ex.fabricante).trim()) || "Conela";
+      // 5b) Resolve competitor (manufacturer) — for house uploads (CN Code) we force the configured id; otherwise fallback to "Conela" when not detected.
       let competitorId: string | null = null;
-      {
+      if (it.houseCompetitorId) {
+        competitorId = it.houseCompetitorId;
+      } else {
+        const fabricanteNome = (ex.fabricante && String(ex.fabricante).trim()) || "Conela";
         const { data: existingComp } = await supabase
           .from("competitors")
           .select("id")
