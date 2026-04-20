@@ -1,7 +1,7 @@
 // Changelog técnico do sistema DocIntel.
 // Atualize APP_VERSION + adicione uma entrada no topo a cada release/revisão relevante.
 
-export const APP_VERSION = "1.5.0";
+export const APP_VERSION = "1.6.0";
 export const APP_BUILD_DATE = "2026-04-20";
 
 export type ChangelogEntry = {
@@ -13,6 +13,18 @@ export type ChangelogEntry = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: "1.6.0",
+    date: "2026-04-20",
+    type: "feature",
+    title: "Base CN Code (empresa-casa) + Head-to-Head com concorrentes",
+    changes: [
+      "Novo Upload CN Code: rota dedicada que vincula automaticamente as propostas à empresa-casa, separando-as dos concorrentes.",
+      "Concorrentes ganham flag is_house: 'CN Code' aparece como casa e é excluída da contagem de concorrência.",
+      "Novo painel Head-to-Head: cruza propostas CN Code × concorrentes para o mesmo cliente, mostrando Δ valor, Δ prazo e Δ garantia.",
+      "Explicação automática por IA do provável motivo de decisão em cada disputa (cacheada no histórico de revisão da proposta).",
+    ],
+  },
   {
     version: "1.5.0",
     date: "2026-04-20",

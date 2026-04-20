@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Upload, FileText, Users, Building2, Wrench, BarChart3,
   Map, Brain, GitCompare, ClipboardCheck, BookOpen, ListChecks,
   ShieldCheck, Settings, LogOut, Search, Lightbulb, Target,
-  RefreshCw, Tag,
+  RefreshCw, Tag, Home, Swords,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,8 @@ const nav: { section: string; items: NavItem[] }[] = [
     { to: "/app", label: "Dashboard", icon: LayoutDashboard, exact: true },
   ]},
   { section: "Documentos", items: [
-    { to: "/app/upload", label: "Upload", icon: Upload },
+    { to: "/app/upload/cncode", label: "Upload CN Code (casa)", icon: Home },
+    { to: "/app/upload", label: "Upload Concorrentes", icon: Upload, exact: true },
     { to: "/app/documents", label: "Documentos", icon: FileText },
     { to: "/app/queue", label: "Fila de processamento", icon: ListChecks },
   ]},
@@ -34,6 +35,7 @@ const nav: { section: string; items: NavItem[] }[] = [
     { to: "/app/dashboards/contractual", label: "Contratual", icon: ShieldCheck },
     { to: "/app/dashboards/geographic", label: "Geográfico", icon: Map },
     { to: "/app/dashboards/strategic", label: "Estratégico", icon: Brain },
+    { to: "/app/dashboards/head-to-head", label: "Head-to-Head", icon: Swords },
   ]},
   { section: "Inteligência de Mercado", items: [
     { to: "/app/market", label: "Mercado & Produto", icon: Lightbulb },
