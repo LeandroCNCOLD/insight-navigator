@@ -483,7 +483,7 @@ function Tech() {
                       </tr>
                       {open && (
                         <tr className="bg-muted/10 border-b border-border/40">
-                          <td colSpan={10} className="p-4">
+                          <td colSpan={11} className="p-4">
                             <ModelDetail group={g} />
                           </td>
                         </tr>
