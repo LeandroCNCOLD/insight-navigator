@@ -308,8 +308,9 @@ function extractTechnicalHints(sourceText: string) {
 }
 
 // Known competitor catalog — order matters (specific before generic).
-// "fallback" is true when AI didn't detect anything in the text.
+// CN Cold is the house manufacturer (is_house=true); all others are rivals.
 const KNOWN_COMPETITORS: Array<{ name: string; patterns: RegExp[] }> = [
+  { name: "CN Cold", patterns: [/\bcn\s*cold\b/i, /\bcncold\b/i, /\bcn[\s\-_]?code\b/i, /cncold\.com/i] },
   { name: "Conela", patterns: [/\bconela\b/i, /conela\.com/i] },
   { name: "Thermopro", patterns: [/\bthermo\s*pro\b/i, /thermopro/i] },
   { name: "Kit Frigor", patterns: [/\bkit\s*frigor\b/i] },
@@ -325,6 +326,12 @@ function detectManufacturer(sourceText: string): string | null {
     if (c.patterns.some((p) => p.test(sourceText))) return c.name;
   }
   return null;
+}
+
+// Returns true if the manufacturer name corresponds to the house brand (CN Cold).
+function isHouseName(name: string | null | undefined): boolean {
+  if (!name) return false;
+  return /\bcn\s*cold\b|\bcncold\b|\bcn[\s\-_]?code\b/i.test(name);
 }
 
 function mergeTechnicalHints(extracted: any, sourceText: string) {
