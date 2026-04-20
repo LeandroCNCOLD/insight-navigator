@@ -237,7 +237,9 @@ function Tech() {
     map.forEach((g) => {
       g.capacidadeKcal = rangeOf(g.occurrences.map((o) => Number(o.capacidade_kcal)));
       g.capacidadeKcalUnit = rangeOf(
-        g.occurrences.map((o) => Number(o.capacidadeUnitaria)).filter((n) => n > 0)
+        g.occurrences
+          .map((o) => o.capacidadeUnitaria?.value ?? 0)
+          .filter((n) => n > 0)
       );
       g.potenciaHp = rangeOf(g.occurrences.map((o) => Number(o.potencia_hp)));
       g.valorUnit = rangeOf(g.occurrences.map((o) => Number(o.valor_unitario)));
