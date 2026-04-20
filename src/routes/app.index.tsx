@@ -23,7 +23,7 @@ function Dashboard() {
     queryFn: async () => {
       const [docs, props, clients, comps, equips, recent] = await Promise.all([
         supabase.from("documents").select("id,status,competitor:competitors(is_house)"),
-        supabase.from("proposals").select("id,valor_total,data_proposta,status_proposta,competitor_id,client_id,competitor:competitors(is_house)"),
+        supabase.from("proposals").select("id,valor_total,data_proposta,status_proposta,competitor_id,client_id,competitor:competitors!competitor_id(is_house)"),
         supabase.from("clients").select("id,estado", { count: "exact" }),
         supabase.from("competitors").select("id", { count: "exact" }),
         supabase.from("equipments").select("id", { count: "exact" }),
