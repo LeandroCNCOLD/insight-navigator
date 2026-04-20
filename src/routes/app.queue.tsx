@@ -133,8 +133,9 @@ function Queue() {
               {data.map((d) => {
                 const isStuck =
                   d.status === "failed" ||
+                  d.status === "queued" ||
                   (d.status === "processing" &&
-                    Date.now() - new Date(d.created_at).getTime() > 5 * 60 * 1000);
+                    Date.now() - new Date(d.created_at).getTime() > 2 * 60 * 1000);
                 return (
                   <tr key={d.id}>
                     <td className="px-4 py-2.5">{d.file_name}</td>
