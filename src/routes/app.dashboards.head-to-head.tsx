@@ -208,6 +208,42 @@ function HeadToHeadPage() {
         }
       />
 
+      <Card className="p-5 gradient-surface border-border space-y-3">
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div className="flex items-start gap-3">
+            <div className="rounded-md bg-primary/10 p-2"><Brain className="size-5 text-primary" /></div>
+            <div>
+              <div className="font-semibold">Análise IA — Confronto por CNPJ</div>
+              <div className="text-xs text-muted-foreground max-w-xl">
+                A IA cruza propostas da CN Cold e dos concorrentes pelo CNPJ do cliente (com fallback por nome) e gera uma sugestão de análise consolidada do porquê de cada disputa.
+              </div>
+            </div>
+          </div>
+          <Button onClick={runGlobalAI} disabled={aiLoading}>
+            {aiLoading ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Sparkles className="size-4 mr-2" />}
+            {aiLoading ? "Analisando…" : "Gerar análise IA"}
+          </Button>
+        </div>
+        {aiResult && (
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-2 text-xs">
+              <Badge variant="secondary">{aiResult.confronts_count} confronto(s)</Badge>
+              {aiResult.confronts.slice(0, 6).map((c: any, i: number) => (
+                <Badge key={i} variant="outline" className="font-mono">
+                  {c.cliente} {c.cnpj ? `· ${c.cnpj}` : ""} ({c.house_count}×{c.rivals_count})
+                </Badge>
+              ))}
+              {aiResult.confronts.length > 6 && (
+                <Badge variant="outline">+{aiResult.confronts.length - 6}</Badge>
+              )}
+            </div>
+            <div className="rounded-md border bg-background/60 p-4 prose prose-sm dark:prose-invert max-w-none">
+              <ReactMarkdown>{aiResult.analysis || "Sem análise."}</ReactMarkdown>
+            </div>
+          </div>
+        )}
+      </Card>
+
       <Card className="p-4">
         <Input
           placeholder="Filtrar por cliente, UF ou concorrente…"
