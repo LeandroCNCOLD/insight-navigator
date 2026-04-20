@@ -463,6 +463,7 @@ function Tech() {
                           <Badge variant="outline" className="text-[10px]">{g.tipo}</Badge>
                         </td>
                         <td className="px-3 py-2 text-right font-mono">{g.totalQty}</td>
+                        <td className="px-3 py-2">{rangeText(g.capacidadeKcalUnit, "kcal/h")}</td>
                         <td className="px-3 py-2">{rangeText(g.capacidadeKcal, "kcal/h")}</td>
                         <td className="px-3 py-2">{rangeText(g.potenciaHp, "HP")}</td>
                         <td className="px-3 py-2">
