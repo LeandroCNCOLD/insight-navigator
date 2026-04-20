@@ -245,8 +245,11 @@ function DocsList() {
             <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>
               <X className="size-4 mr-1.5" />Limpar
             </Button>
-            <Button size="sm" onClick={reprocessSelected}>
-              <Sparkles className="size-4 mr-1.5" />Reprocessar selecionados
+            <Button size="sm" variant="outline" onClick={reprocessSelected}>
+              <Sparkles className="size-4 mr-1.5" />Reprocessar
+            </Button>
+            <Button size="sm" variant="destructive" onClick={deleteSelected}>
+              <Trash2 className="size-4 mr-1.5" />Excluir
             </Button>
           </div>
         </div>
@@ -295,17 +298,41 @@ function DocsList() {
                       </Link>
                     </td>
                     <td className="px-4 py-2.5">
-                      {d.competitor?.nome ? (
-                        <Link
-                          to="/app/competitors/$nome"
-                          params={{ nome: encodeURIComponent(d.competitor.nome) }}
-                          className="text-xs text-primary hover:underline"
-                        >
-                          {d.competitor.nome}
-                        </Link>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
+                      <div className="flex items-center gap-1.5">
+                        {d.competitor?.nome ? (
+                          <Link
+                            to="/app/competitors/$nome"
+                            params={{ nome: encodeURIComponent(d.competitor.nome) }}
+                            className="text-xs text-primary hover:underline"
+                          >
+                            {d.competitor.is_house ? "🏠 " : ""}{d.competitor.nome}
+                          </Link>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                        {!d.competitor?.is_house && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-1.5 text-[10px]"
+                            title="Marcar este documento como CN Cold (casa)"
+                            onClick={() => reassignToHouse(d.id, d.file_name)}
+                          >
+                            <Home className="size-3 mr-0.5" />É CN Cold
+                          </Button>
+                        )}
+                        {d.competitor?.nome && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-1.5 text-[10px]"
+                            title="Limpar fabricante e redetectar via reprocessamento"
+                            onClick={() => clearManufacturer(d.id, d.file_name)}
+                          >
+                            <Building2 className="size-3" />
+                          </Button>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-2.5 text-muted-foreground">{d.client?.nome || "—"}</td>
                     <td className="px-4 py-2.5 uppercase text-xs">{d.file_type}</td>
@@ -318,22 +345,33 @@ function DocsList() {
                     </td>
                     <td className="px-4 py-2.5">
                       {d.tem_analise_forense ? (
-                        <Badge variant="outline" className="text-[10px] border-primary/40 text-primary">v{/* version unknown here */}OK</Badge>
+                        <Badge variant="outline" className="text-[10px] border-primary/40 text-primary">OK</Badge>
                       ) : (
                         <span className="text-[10px] text-muted-foreground">—</span>
                       )}
                     </td>
                     <td className="px-4 py-2.5 text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7"
-                        disabled={isReprocessing || !["extracted", "failed"].includes(d.status)}
-                        onClick={() => reprocess(d.id, d.file_name)}
-                      >
-                        <RefreshCcw className={`size-3.5 mr-1.5 ${isReprocessing ? "animate-spin" : ""}`} />
-                        {isReprocessing ? "Em fila" : "Reprocessar"}
-                      </Button>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7"
+                          disabled={isReprocessing || !["extracted", "failed"].includes(d.status)}
+                          onClick={() => reprocess(d.id, d.file_name)}
+                        >
+                          <RefreshCcw className={`size-3.5 mr-1.5 ${isReprocessing ? "animate-spin" : ""}`} />
+                          {isReprocessing ? "Em fila" : "Reprocessar"}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          title="Excluir documento (libera para reupload)"
+                          onClick={() => deleteDoc(d.id, d.file_name)}
+                        >
+                          <Trash2 className="size-3.5" />
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 );
