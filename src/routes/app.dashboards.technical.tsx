@@ -68,6 +68,7 @@ type ProposalCtx = {
   data_proposta: string | null;
   valor_total: number | null;
   dados_tecnicos: any;
+  document_id: string | null;
   client: { id: string; nome: string; cidade: string | null; estado: string | null } | null;
   competitor: { id: string; nome: string } | null;
 };
