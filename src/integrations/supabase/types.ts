@@ -238,6 +238,51 @@ export type Database = {
         }
         Relationships: []
       }
+      dispute_competitors: {
+        Row: {
+          competitor_proposal_id: string
+          created_at: string
+          dispute_id: string
+          id: string
+          is_winner: boolean
+          notas: string | null
+          owner_id: string
+        }
+        Insert: {
+          competitor_proposal_id: string
+          created_at?: string
+          dispute_id: string
+          id?: string
+          is_winner?: boolean
+          notas?: string | null
+          owner_id: string
+        }
+        Update: {
+          competitor_proposal_id?: string
+          created_at?: string
+          dispute_id?: string
+          id?: string
+          is_winner?: boolean
+          notas?: string | null
+          owner_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dispute_competitors_competitor_proposal_id_fkey"
+            columns: ["competitor_proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispute_competitors_dispute_id_fkey"
+            columns: ["dispute_id"]
+            isOneToOne: false
+            referencedRelation: "proposal_disputes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       documents: {
         Row: {
           ano: number | null
@@ -734,6 +779,86 @@ export type Database = {
         }
         Relationships: []
       }
+      proposal_disputes: {
+        Row: {
+          ai_analysis: Json | null
+          ai_analyzed_at: string | null
+          client_id: string | null
+          created_at: string
+          house_proposal_id: string
+          id: string
+          motivo_resultado: string | null
+          observacoes: string | null
+          owner_id: string
+          resultado: string
+          titulo: string | null
+          updated_at: string
+          winner_competitor_id: string | null
+          winner_proposal_id: string | null
+        }
+        Insert: {
+          ai_analysis?: Json | null
+          ai_analyzed_at?: string | null
+          client_id?: string | null
+          created_at?: string
+          house_proposal_id: string
+          id?: string
+          motivo_resultado?: string | null
+          observacoes?: string | null
+          owner_id: string
+          resultado?: string
+          titulo?: string | null
+          updated_at?: string
+          winner_competitor_id?: string | null
+          winner_proposal_id?: string | null
+        }
+        Update: {
+          ai_analysis?: Json | null
+          ai_analyzed_at?: string | null
+          client_id?: string | null
+          created_at?: string
+          house_proposal_id?: string
+          id?: string
+          motivo_resultado?: string | null
+          observacoes?: string | null
+          owner_id?: string
+          resultado?: string
+          titulo?: string | null
+          updated_at?: string
+          winner_competitor_id?: string | null
+          winner_proposal_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proposal_disputes_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposal_disputes_house_proposal_id_fkey"
+            columns: ["house_proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposal_disputes_winner_competitor_id_fkey"
+            columns: ["winner_competitor_id"]
+            isOneToOne: false
+            referencedRelation: "competitors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposal_disputes_winner_proposal_id_fkey"
+            columns: ["winner_proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       proposal_review_events: {
         Row: {
           action: string
@@ -810,6 +935,7 @@ export type Database = {
           indicio_fechamento: string | null
           insights_benchmarking: string | null
           instalacao_inclusa: boolean | null
+          motivo_resultado: string | null
           numero: string | null
           observacoes: string | null
           owner_id: string
@@ -821,6 +947,7 @@ export type Database = {
           prazo_fabricacao_dias: number | null
           prazo_instalacao_dias: number | null
           representante_legal: string | null
+          resultado_disputa: string | null
           resumo_comercial: string | null
           resumo_executivo: string | null
           resumo_tecnico: string | null
@@ -831,6 +958,7 @@ export type Database = {
           tem_assinatura: boolean | null
           updated_at: string
           valor_total: number | null
+          vencedor_competitor_id: string | null
           vendedor: string | null
         }
         Insert: {
@@ -854,6 +982,7 @@ export type Database = {
           indicio_fechamento?: string | null
           insights_benchmarking?: string | null
           instalacao_inclusa?: boolean | null
+          motivo_resultado?: string | null
           numero?: string | null
           observacoes?: string | null
           owner_id: string
@@ -865,6 +994,7 @@ export type Database = {
           prazo_fabricacao_dias?: number | null
           prazo_instalacao_dias?: number | null
           representante_legal?: string | null
+          resultado_disputa?: string | null
           resumo_comercial?: string | null
           resumo_executivo?: string | null
           resumo_tecnico?: string | null
@@ -875,6 +1005,7 @@ export type Database = {
           tem_assinatura?: boolean | null
           updated_at?: string
           valor_total?: number | null
+          vencedor_competitor_id?: string | null
           vendedor?: string | null
         }
         Update: {
@@ -898,6 +1029,7 @@ export type Database = {
           indicio_fechamento?: string | null
           insights_benchmarking?: string | null
           instalacao_inclusa?: boolean | null
+          motivo_resultado?: string | null
           numero?: string | null
           observacoes?: string | null
           owner_id?: string
@@ -909,6 +1041,7 @@ export type Database = {
           prazo_fabricacao_dias?: number | null
           prazo_instalacao_dias?: number | null
           representante_legal?: string | null
+          resultado_disputa?: string | null
           resumo_comercial?: string | null
           resumo_executivo?: string | null
           resumo_tecnico?: string | null
@@ -919,6 +1052,7 @@ export type Database = {
           tem_assinatura?: boolean | null
           updated_at?: string
           valor_total?: number | null
+          vencedor_competitor_id?: string | null
           vendedor?: string | null
         }
         Relationships: [
@@ -941,6 +1075,13 @@ export type Database = {
             columns: ["document_id"]
             isOneToOne: false
             referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposals_vencedor_competitor_id_fkey"
+            columns: ["vencedor_competitor_id"]
+            isOneToOne: false
+            referencedRelation: "competitors"
             referencedColumns: ["id"]
           },
         ]
