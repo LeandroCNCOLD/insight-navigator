@@ -50,10 +50,11 @@ async function fetchHeadToHead(): Promise<{ pairs: Pair[]; allRows: Row[] }> {
        client:clients(nome,estado,cnpj),
        competitor:competitors!competitor_id(nome,is_house)`,
     )
-    .not("client_id", "is", null);
+    .order("created_at", { ascending: false });
   if (error) throw error;
   const rows = (data || []) as unknown as Row[];
 
+  // Confrontos automáticos só fazem sentido quando temos client_id em ambos os lados
   const byClient = new Map<string, Pair>();
   for (const r of rows) {
     if (!r.client_id) continue;
@@ -71,6 +72,7 @@ async function fetchHeadToHead(): Promise<{ pairs: Pair[]; allRows: Row[] }> {
     else p.rivals.push(r);
   }
   const pairs = Array.from(byClient.values()).filter((p) => p.house.length > 0 && p.rivals.length > 0);
+  // allRows mantém TODAS as propostas (inclusive sem client_id) para o pareamento manual
   return { pairs, allRows: rows };
 }
 
