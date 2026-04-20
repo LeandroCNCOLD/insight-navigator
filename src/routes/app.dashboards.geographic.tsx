@@ -652,6 +652,117 @@ function Geo() {
         </div>
       </Card>
 
+      {/* Premissas modal — calculadora de viagem */}
+      <Dialog open={premissasOpen} onOpenChange={setPremissasOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Calculator className="h-4 w-4" />
+              Calculadora de viagem & premissas do roteiro
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <Field label="Origem">
+              <Input
+                value={premissas.origem}
+                onChange={(e) => setPremissas({ ...premissas, origem: e.target.value })}
+              />
+            </Field>
+            <Field label="Veículo">
+              <Input
+                value={premissas.veiculo}
+                onChange={(e) => setPremissas({ ...premissas, veiculo: e.target.value })}
+              />
+            </Field>
+            <Field label="Consumo (km/l)">
+              <Input
+                type="number"
+                step="0.1"
+                value={premissas.consumoKmL}
+                onChange={(e) => setPremissas({ ...premissas, consumoKmL: Number(e.target.value) })}
+              />
+            </Field>
+            <Field label="Combustível (R$/l)">
+              <Input
+                type="number"
+                step="0.01"
+                value={premissas.precoCombustivel}
+                onChange={(e) => setPremissas({ ...premissas, precoCombustivel: Number(e.target.value) })}
+              />
+            </Field>
+            <Field label="Pedágio médio (R$/100km)">
+              <Input
+                type="number"
+                step="1"
+                value={premissas.pedagioPor100km}
+                onChange={(e) => setPremissas({ ...premissas, pedagioPor100km: Number(e.target.value) })}
+              />
+            </Field>
+            <Field label="Diária hotel (R$)">
+              <Input
+                type="number"
+                step="10"
+                value={premissas.diariaHotel}
+                onChange={(e) => setPremissas({ ...premissas, diariaHotel: Number(e.target.value) })}
+              />
+            </Field>
+            <Field label="Refeições/dia (R$)">
+              <Input
+                type="number"
+                step="10"
+                value={premissas.refeicoesDia}
+                onChange={(e) => setPremissas({ ...premissas, refeicoesDia: Number(e.target.value) })}
+              />
+            </Field>
+            <Field label="Visitas por dia">
+              <Input
+                type="number"
+                min={1}
+                max={6}
+                value={premissas.visitasPorDia}
+                onChange={(e) => setPremissas({ ...premissas, visitasPorDia: Number(e.target.value) })}
+              />
+            </Field>
+            <Field label="Máx. visitas no período">
+              <Input
+                type="number"
+                min={1}
+                value={premissas.maxVisitas}
+                onChange={(e) => setPremissas({ ...premissas, maxVisitas: Number(e.target.value) })}
+              />
+            </Field>
+            <Field label="Dias disponíveis">
+              <Input
+                type="number"
+                min={1}
+                value={premissas.diasDisponiveis}
+                onChange={(e) => setPremissas({ ...premissas, diasDisponiveis: Number(e.target.value) })}
+              />
+            </Field>
+            <Field label="Janela de execução">
+              <Input
+                value={premissas.janela}
+                onChange={(e) => setPremissas({ ...premissas, janela: e.target.value })}
+              />
+            </Field>
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            A IA usará esses parâmetros para calcular custo de combustível, pedágio,
+            hotel e refeições, e agrupar clientes por proximidade respeitando o limite
+            de visitas por dia e o máximo total.
+          </p>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setPremissasOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={runPlanner}>
+              <RouteIcon className="h-3.5 w-3.5 mr-1" />
+              Gerar roteiro com cálculo
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Route modal */}
       <Dialog
         open={routeModal.open}
@@ -667,7 +778,7 @@ function Geo() {
           {routeModal.loading ? (
             <div className="flex items-center justify-center py-12 gap-3 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
-              Gerando roteiro inteligente...
+              Gerando roteiro inteligente com calculadora de viagem...
             </div>
           ) : (
             <div className="prose prose-invert prose-sm max-w-none">
