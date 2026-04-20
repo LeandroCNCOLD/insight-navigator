@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Fragment, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -68,6 +68,7 @@ type ProposalCtx = {
   data_proposta: string | null;
   valor_total: number | null;
   dados_tecnicos: any;
+  document_id: string | null;
   client: { id: string; nome: string; cidade: string | null; estado: string | null } | null;
   competitor: { id: string; nome: string } | null;
 };
@@ -77,7 +78,13 @@ type ModelGroup = {
   modelo: string;
   marca: string;
   tipo: string;
-  occurrences: Array<EquipRow & { ctx: ProposalCtx | null; capacidadeUnitaria: number | null; tempEvap: number | null }>;
+  occurrences: Array<
+    EquipRow & {
+      ctx: ProposalCtx | null;
+      capacidadeUnitaria: { value: number; source: "extracted" | "suggested" } | null;
+      tempEvap: number | null;
+    }
+  >;
   totalQty: number;
   capacidadeKcal: { min: number; max: number; avg: number } | null;
   capacidadeKcalUnit: { min: number; max: number; avg: number } | null;
@@ -95,23 +102,34 @@ type ModelGroup = {
   clientes: string[];
 };
 
-// Heuristic: infer unit capacity from registered total when value seems aggregated.
-// If quantidade > 1 and capacidade_kcal divides cleanly OR is suspiciously large
-// (>= 4x quantidade), assume it's a total and divide. Otherwise treat as unitary.
-function inferUnitCapacity(
+// Try to find an explicitly extracted unit capacity in dados_tecnicos JSON before
+// falling back to division-based suggestion. Returns null when nothing is reliable.
+function resolveUnitCapacity(
   rawCapacidade: number | null | undefined,
-  qty: number | null | undefined
-): number | null {
+  qty: number | null | undefined,
+  dadosTecnicos: any
+): { value: number; source: "extracted" | "suggested" } | null {
+  // 1. Look for an explicit unit capacity in the extracted JSON.
+  const extracted = pickNum(dadosTecnicos || {}, [
+    "capacidade_unitaria_kcal",
+    "capacidade_unitaria",
+    "capacidade_kcal_unitaria",
+    "capacidade_por_equipamento",
+    "capacidade_por_unidade",
+  ]);
+  if (extracted != null && extracted > 0) {
+    return { value: extracted, source: "extracted" };
+  }
+  // 2. Fall back to suggestion only when there is a real quantity > 1 to divide by.
   const c = Number(rawCapacidade);
   const q = Math.max(1, Number(qty) || 1);
   if (!c || isNaN(c) || c <= 0) return null;
-  if (q <= 1) return c;
-  // If capacity divides evenly by quantity AND quotient is plausible (>=200 kcal/h), treat as total.
-  if (c % q === 0 && c / q >= 200) return c / q;
-  // If capacity is "very large" relative to a single unit (heuristic ratio), divide.
-  if (c >= q * 1000) return c / q;
-  // Otherwise assume already unitary.
-  return c;
+  if (q <= 1) {
+    // Single-unit row: registered value IS the unit capacity.
+    return { value: c, source: "extracted" };
+  }
+  // Multi-unit row: suggest division. Mark as suggestion so user can review.
+  return { value: c / q, source: "suggested" };
 }
 
 function Tech() {
@@ -123,7 +141,7 @@ function Tech() {
         supabase
           .from("proposals")
           .select(
-            "id, numero, data_proposta, valor_total, dados_tecnicos, client:clients(id, nome, cidade, estado), competitor:competitors(id, nome)"
+            "id, numero, data_proposta, valor_total, dados_tecnicos, document_id, client:clients(id, nome, cidade, estado), competitor:competitors(id, nome)"
           ),
       ]);
       return { equips: (equips || []) as EquipRow[], props: (props || []) as any[] };
@@ -182,7 +200,7 @@ function Tech() {
         "temp_camara",
         "temp_operacao",
       ]);
-      const capacidadeUnitaria = inferUnitCapacity(e.capacidade_kcal, e.quantidade);
+      const capacidadeUnitaria = resolveUnitCapacity(e.capacidade_kcal, e.quantidade, dt);
       grp.occurrences.push({ ...e, ctx, capacidadeUnitaria, tempEvap });
       grp.totalQty += Number(e.quantidade) || 1;
 
@@ -220,7 +238,9 @@ function Tech() {
     map.forEach((g) => {
       g.capacidadeKcal = rangeOf(g.occurrences.map((o) => Number(o.capacidade_kcal)));
       g.capacidadeKcalUnit = rangeOf(
-        g.occurrences.map((o) => Number(o.capacidadeUnitaria)).filter((n) => n > 0)
+        g.occurrences
+          .map((o) => o.capacidadeUnitaria?.value ?? 0)
+          .filter((n) => n > 0)
       );
       g.potenciaHp = rangeOf(g.occurrences.map((o) => Number(o.potencia_hp)));
       g.valorUnit = rangeOf(g.occurrences.map((o) => Number(o.valor_unitario)));
@@ -503,13 +523,13 @@ function Tech() {
 function ModelDetail({ group }: { group: ModelGroup }) {
   // Build seed points from occurrences with both temp and unit capacity available
   const seedPoints = group.occurrences
-    .filter((o) => o.tempEvap != null && o.capacidadeUnitaria != null && o.capacidadeUnitaria > 0)
+    .filter((o) => o.tempEvap != null && o.capacidadeUnitaria != null && o.capacidadeUnitaria.value > 0)
     .map((o) => ({
       marca: group.marca,
       modelo: group.modelo,
       gas_refrigerante: o.gas_refrigerante,
       temp_evaporacao_c: o.tempEvap as number,
-      capacidade_kcal_h: o.capacidadeUnitaria as number,
+      capacidade_kcal_h: (o.capacidadeUnitaria as { value: number }).value,
       potencia_hp: o.potencia_hp,
       proposal_id: o.proposal_id,
     }));
@@ -596,37 +616,78 @@ function ModelDetail({ group }: { group: ModelGroup }) {
               </tr>
             </thead>
             <tbody>
-              {group.occurrences.map((o) => (
-                <tr key={o.id} className="border-b border-border/20">
-                  <td className="py-1.5 pr-3 font-mono text-[10px]">
-                    {o.ctx?.numero || o.proposal_id.slice(0, 8)}
-                  </td>
-                  <td className="py-1.5 pr-3">
-                    {o.ctx?.client?.nome || "—"}
-                    {o.ctx?.client?.cidade && (
-                      <span className="text-muted-foreground"> · {o.ctx.client.cidade}/{o.ctx.client.estado}</span>
-                    )}
-                  </td>
-                  <td className="py-1.5 pr-3 text-muted-foreground">
-                    {o.ctx?.competitor?.nome || "—"}
-                  </td>
-                  <td className="py-1.5 pr-3 text-right font-mono">{o.quantidade ?? 1}</td>
-                  <td className="py-1.5 pr-3">
-                    {o.capacidadeUnitaria
-                      ? `${o.capacidadeUnitaria.toLocaleString("pt-BR")} kcal/h`
-                      : "—"}
-                  </td>
-                  <td className="py-1.5 pr-3 text-muted-foreground">
-                    {o.capacidade_kcal ? `${Number(o.capacidade_kcal).toLocaleString("pt-BR")} kcal/h` : "—"}
-                  </td>
-                  <td className="py-1.5 pr-3">{o.tempEvap != null ? `${o.tempEvap}°C` : "—"}</td>
-                  <td className="py-1.5 pr-3">{o.potencia_hp ? `${o.potencia_hp} HP` : "—"}</td>
-                  <td className="py-1.5 pr-3">{o.gas_refrigerante || "—"}</td>
-                  <td className="py-1.5 text-right">
-                    {o.valor_unitario ? formatBRL(Number(o.valor_unitario)) : "—"}
-                  </td>
-                </tr>
-              ))}
+              {group.occurrences.map((o) => {
+                const docId = o.ctx?.document_id;
+                const cliente = o.ctx?.client?.nome;
+                return (
+                  <tr key={o.id} className="border-b border-border/20">
+                    <td className="py-1.5 pr-3 font-mono text-[10px]">
+                      {docId ? (
+                        <Link
+                          to="/app/documents/$id"
+                          params={{ id: docId }}
+                          className="text-primary hover:underline"
+                          title="Abrir arquivo da proposta"
+                        >
+                          {o.ctx?.numero || o.proposal_id.slice(0, 8)}
+                        </Link>
+                      ) : (
+                        o.ctx?.numero || o.proposal_id.slice(0, 8)
+                      )}
+                    </td>
+                    <td className="py-1.5 pr-3">
+                      {docId && cliente ? (
+                        <Link
+                          to="/app/documents/$id"
+                          params={{ id: docId }}
+                          className="text-foreground hover:text-primary hover:underline"
+                          title="Abrir arquivo da proposta"
+                        >
+                          {cliente}
+                        </Link>
+                      ) : (
+                        cliente || "—"
+                      )}
+                      {o.ctx?.client?.cidade && (
+                        <span className="text-muted-foreground"> · {o.ctx.client.cidade}/{o.ctx.client.estado}</span>
+                      )}
+                    </td>
+                    <td className="py-1.5 pr-3 text-muted-foreground">
+                      {o.ctx?.competitor?.nome || "—"}
+                    </td>
+                    <td className="py-1.5 pr-3 text-right font-mono">{o.quantidade ?? 1}</td>
+                    <td className="py-1.5 pr-3">
+                      {o.capacidadeUnitaria ? (
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="font-medium">
+                            {o.capacidadeUnitaria.value.toLocaleString("pt-BR", { maximumFractionDigits: 0 })} kcal/h
+                          </span>
+                          {o.capacidadeUnitaria.source === "suggested" && (
+                            <Badge
+                              variant="outline"
+                              className="text-[9px] px-1 py-0 border-amber-500/40 text-amber-400 bg-amber-500/10"
+                              title={`Sugerido: total ÷ ${o.quantidade ?? 1} unidades. Verifique no documento.`}
+                            >
+                              sugerido
+                            </Badge>
+                          )}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                    <td className="py-1.5 pr-3 text-muted-foreground">
+                      {o.capacidade_kcal ? `${Number(o.capacidade_kcal).toLocaleString("pt-BR")} kcal/h` : "—"}
+                    </td>
+                    <td className="py-1.5 pr-3">{o.tempEvap != null ? `${o.tempEvap}°C` : "—"}</td>
+                    <td className="py-1.5 pr-3">{o.potencia_hp ? `${o.potencia_hp} HP` : "—"}</td>
+                    <td className="py-1.5 pr-3">{o.gas_refrigerante || "—"}</td>
+                    <td className="py-1.5 text-right">
+                      {o.valor_unitario ? formatBRL(Number(o.valor_unitario)) : "—"}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
