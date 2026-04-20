@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader, EmptyState } from "@/components/dashboard-bits";
-import { FileText, Upload, RefreshCcw, Sparkles, X } from "lucide-react";
+import { FileText, Upload, RefreshCcw, Sparkles, X, Trash2, Home, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatBytes, formatDate, statusLabel } from "@/lib/format";
 import { Input } from "@/components/ui/input";
@@ -32,7 +32,7 @@ function DocsList() {
     queryKey: ["documents"],
     queryFn: async () => {
       const { data } = await supabase.from("documents")
-        .select("id,file_name,file_type,file_size,status,created_at,tem_analise_forense,competitor:competitors(id,nome),client:clients(nome,estado)")
+        .select("id,file_name,file_type,file_size,status,created_at,tem_analise_forense,competitor:competitors(id,nome,is_house),client:clients(nome,estado)")
         .order("created_at", { ascending: false });
       return data || [];
     },
@@ -118,6 +118,85 @@ function DocsList() {
     (it) => it.kind === "reprocess" && ["pending", "extracting"].includes(it.status),
   ).length;
 
+  async function ensureHouseCompetitorId(): Promise<string | null> {
+    const { data: u } = await supabase.auth.getUser();
+    if (!u.user) return null;
+    const { data: existing } = await supabase
+      .from("competitors")
+      .select("id")
+      .eq("owner_id", u.user.id)
+      .ilike("nome", "CN Cold")
+      .maybeSingle();
+    if (existing?.id) {
+      await supabase.from("competitors").update({ is_house: true } as any).eq("id", existing.id);
+      return existing.id;
+    }
+    const { data: created } = await supabase
+      .from("competitors")
+      .insert({ owner_id: u.user.id, nome: "CN Cold", is_house: true, descricao: "Empresa da casa" } as any)
+      .select("id")
+      .single();
+    return created?.id || null;
+  }
+
+  const reassignToHouse = async (docId: string, fileName: string) => {
+    const houseId = await ensureHouseCompetitorId();
+    if (!houseId) { toast.error("Não foi possível resolver CN Cold"); return; }
+    await supabase.from("documents").update({ competitor_id: houseId }).eq("id", docId);
+    await supabase.from("proposals").update({ competitor_id: houseId }).eq("document_id", docId);
+    toast.success(`${fileName} marcado como CN Cold (casa)`);
+    refetch();
+  };
+
+  const clearManufacturer = async (docId: string, fileName: string) => {
+    await supabase.from("documents").update({ competitor_id: null }).eq("id", docId);
+    await supabase.from("proposals").update({ competitor_id: null }).eq("document_id", docId);
+    toast.success(`Fabricante removido de ${fileName}. Use 'Reprocessar' para redetectar.`);
+    refetch();
+  };
+
+  const deleteDoc = async (docId: string, fileName: string, filePath?: string) => {
+    if (!confirm(`Excluir definitivamente "${fileName}"?\n\nIsto remove o documento, a proposta extraída, equipamentos e evidências. O arquivo poderá ser enviado novamente.`)) return;
+    try {
+      // Best-effort: remove storage file (we need the path)
+      const { data: doc } = await supabase.from("documents").select("file_path").eq("id", docId).maybeSingle();
+      const path = filePath || doc?.file_path;
+      // Cascade child rows that have no FK cascade
+      const { data: props } = await supabase.from("proposals").select("id").eq("document_id", docId);
+      const propIds = (props || []).map((p: any) => p.id);
+      if (propIds.length) {
+        await supabase.from("equipments").delete().in("proposal_id", propIds);
+        await supabase.from("evidences").delete().in("proposal_id", propIds);
+        await supabase.from("dispute_competitors").delete().in("competitor_proposal_id", propIds);
+        await supabase.from("proposal_disputes").delete().in("house_proposal_id", propIds);
+      }
+      await supabase.from("evidences").delete().eq("document_id", docId);
+      await supabase.from("forensic_analyses").delete().eq("document_id", docId);
+      await supabase.from("processing_queue").delete().eq("document_id", docId);
+      await supabase.from("proposal_review_events").delete().eq("document_id", docId);
+      await supabase.from("proposals").delete().eq("document_id", docId);
+      await supabase.from("documents").delete().eq("id", docId);
+      if (path) await supabase.storage.from("documents").remove([path]);
+      toast.success(`${fileName} excluído. Pode subir novamente.`);
+      setSelected((prev) => { const n = new Set(prev); n.delete(docId); return n; });
+      refetch();
+    } catch (e: any) {
+      toast.error(`Falha ao excluir: ${e.message || e}`);
+    }
+  };
+
+  const deleteSelected = async () => {
+    const ids = Array.from(selected);
+    if (!ids.length) return;
+    if (!confirm(`Excluir ${ids.length} documento(s) definitivamente?`)) return;
+    const map = new Map((data || []).map((d: any) => [d.id, { name: d.file_name }]));
+    for (const id of ids) {
+      const meta = map.get(id) as any;
+      await deleteDoc(id, meta?.name || id);
+    }
+    setSelected(new Set());
+  };
+
   return (
     <div className="p-6 space-y-5">
       <PageHeader
@@ -166,8 +245,11 @@ function DocsList() {
             <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>
               <X className="size-4 mr-1.5" />Limpar
             </Button>
-            <Button size="sm" onClick={reprocessSelected}>
-              <Sparkles className="size-4 mr-1.5" />Reprocessar selecionados
+            <Button size="sm" variant="outline" onClick={reprocessSelected}>
+              <Sparkles className="size-4 mr-1.5" />Reprocessar
+            </Button>
+            <Button size="sm" variant="destructive" onClick={deleteSelected}>
+              <Trash2 className="size-4 mr-1.5" />Excluir
             </Button>
           </div>
         </div>
@@ -216,17 +298,41 @@ function DocsList() {
                       </Link>
                     </td>
                     <td className="px-4 py-2.5">
-                      {d.competitor?.nome ? (
-                        <Link
-                          to="/app/competitors/$nome"
-                          params={{ nome: encodeURIComponent(d.competitor.nome) }}
-                          className="text-xs text-primary hover:underline"
-                        >
-                          {d.competitor.nome}
-                        </Link>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
+                      <div className="flex items-center gap-1.5">
+                        {d.competitor?.nome ? (
+                          <Link
+                            to="/app/competitors/$nome"
+                            params={{ nome: encodeURIComponent(d.competitor.nome) }}
+                            className="text-xs text-primary hover:underline"
+                          >
+                            {d.competitor.is_house ? "🏠 " : ""}{d.competitor.nome}
+                          </Link>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                        {!d.competitor?.is_house && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-1.5 text-[10px]"
+                            title="Marcar este documento como CN Cold (casa)"
+                            onClick={() => reassignToHouse(d.id, d.file_name)}
+                          >
+                            <Home className="size-3 mr-0.5" />É CN Cold
+                          </Button>
+                        )}
+                        {d.competitor?.nome && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-1.5 text-[10px]"
+                            title="Limpar fabricante e redetectar via reprocessamento"
+                            onClick={() => clearManufacturer(d.id, d.file_name)}
+                          >
+                            <Building2 className="size-3" />
+                          </Button>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-2.5 text-muted-foreground">{d.client?.nome || "—"}</td>
                     <td className="px-4 py-2.5 uppercase text-xs">{d.file_type}</td>
@@ -239,22 +345,33 @@ function DocsList() {
                     </td>
                     <td className="px-4 py-2.5">
                       {d.tem_analise_forense ? (
-                        <Badge variant="outline" className="text-[10px] border-primary/40 text-primary">v{/* version unknown here */}OK</Badge>
+                        <Badge variant="outline" className="text-[10px] border-primary/40 text-primary">OK</Badge>
                       ) : (
                         <span className="text-[10px] text-muted-foreground">—</span>
                       )}
                     </td>
                     <td className="px-4 py-2.5 text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7"
-                        disabled={isReprocessing || !["extracted", "failed"].includes(d.status)}
-                        onClick={() => reprocess(d.id, d.file_name)}
-                      >
-                        <RefreshCcw className={`size-3.5 mr-1.5 ${isReprocessing ? "animate-spin" : ""}`} />
-                        {isReprocessing ? "Em fila" : "Reprocessar"}
-                      </Button>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7"
+                          disabled={isReprocessing || !["extracted", "failed"].includes(d.status)}
+                          onClick={() => reprocess(d.id, d.file_name)}
+                        >
+                          <RefreshCcw className={`size-3.5 mr-1.5 ${isReprocessing ? "animate-spin" : ""}`} />
+                          {isReprocessing ? "Em fila" : "Reprocessar"}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          title="Excluir documento (libera para reupload)"
+                          onClick={() => deleteDoc(d.id, d.file_name)}
+                        >
+                          <Trash2 className="size-3.5" />
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 );
