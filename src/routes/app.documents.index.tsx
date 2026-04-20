@@ -4,11 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader, EmptyState } from "@/components/dashboard-bits";
-import { FileText, Upload, RefreshCcw, Sparkles } from "lucide-react";
+import { FileText, Upload, RefreshCcw, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatBytes, formatDate, statusLabel } from "@/lib/format";
 import { Input } from "@/components/ui/input";
-import { useEffect, useState } from "react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useEffect, useMemo, useState } from "react";
 import { uploadQueue, type QueueItem } from "@/lib/upload-queue";
 import { toast } from "sonner";
 
