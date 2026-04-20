@@ -25,7 +25,7 @@ export type QueueItem = {
   message?: string;
   documentId?: string;
   kind?: "upload" | "reprocess";
-  /** When set, the proposal will be linked to this competitor_id (used for "house" uploads — CN Code) bypassing manufacturer detection. */
+  /** When set, the proposal will be linked to this competitor_id (used for "house" uploads — CN Cold) bypassing manufacturer detection. */
   houseCompetitorId?: string;
 };
 
@@ -79,7 +79,7 @@ class UploadQueue {
     this.emit();
   }
 
-  /** Add files marked as "house" — proposal will be linked to the given competitor_id (CN Code) ignoring AI manufacturer detection. */
+  /** Add files marked as "house" — proposal will be linked to the given competitor_id (CN Cold) ignoring AI manufacturer detection. */
   addHouse(files: File[], houseCompetitorId: string) {
     const newOnes: QueueItem[] = files.map((f) => ({
       id: crypto.randomUUID(),
@@ -316,7 +316,7 @@ class UploadQueue {
         }
       }
 
-      // 5b) Resolve competitor (manufacturer) — for house uploads (CN Code) we force the configured id; otherwise fallback to "Conela" when not detected.
+      // 5b) Resolve competitor (manufacturer) — for house uploads (CN Cold) we force the configured id; otherwise fallback to "Conela" when not detected.
       let competitorId: string | null = null;
       if (it.houseCompetitorId) {
         competitorId = it.houseCompetitorId;

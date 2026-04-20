@@ -13,7 +13,7 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/app/dashboards/head-to-head")({
   component: HeadToHeadPage,
-  head: () => ({ meta: [{ title: "Head-to-Head CN Code × Concorrentes — DocIntel" }] }),
+  head: () => ({ meta: [{ title: "Head-to-Head CN Cold × Concorrentes — DocIntel" }] }),
 });
 
 type Row = {
@@ -124,7 +124,7 @@ function HeadToHeadPage() {
           tecnico: rival.dados_tecnicos,
         },
       };
-      const pergunta = `Compare estas duas propostas para o mesmo cliente (${pair.clientName}) e explique de forma direta o provável motivo de decisão (preço, prazo, garantia, técnica, pagamento). Aponte vantagens da CN Code e do concorrente, e o que provavelmente determinou o resultado. Contexto JSON: ${JSON.stringify(ctx)}`;
+      const pergunta = `Compare estas duas propostas para o mesmo cliente (${pair.clientName}) e explique de forma direta o provável motivo de decisão (preço, prazo, garantia, técnica, pagamento). Aponte vantagens da CN Cold e do concorrente, e o que provavelmente determinou o resultado. Contexto JSON: ${JSON.stringify(ctx)}`;
 
       const { data, error } = await supabase.functions.invoke("market-intelligence", {
         body: { question: pergunta, context: ctx },
@@ -149,7 +149,7 @@ function HeadToHeadPage() {
   if (q.isLoading) {
     return (
       <div className="p-6">
-        <PageHeader title="Head-to-Head CN Code × Concorrentes" description="Carregando…" />
+        <PageHeader title="Head-to-Head CN Cold × Concorrentes" description="Carregando…" />
         <div className="flex items-center justify-center py-12 text-muted-foreground">
           <Loader2 className="size-5 animate-spin mr-2" /> Cruzando propostas…
         </div>
@@ -161,16 +161,16 @@ function HeadToHeadPage() {
     return (
       <div className="p-6 space-y-6">
         <PageHeader
-          title="Head-to-Head CN Code × Concorrentes"
-          description="Onde a CN Code disputou contra concorrentes e o que aconteceu."
+          title="Head-to-Head CN Cold × Concorrentes"
+          description="Onde a CN Cold disputou contra concorrentes e o que aconteceu."
         />
         <EmptyState
           icon={Swords}
           title="Sem disputas pareadas ainda"
-          description="Para aparecer aqui, é preciso ter pelo menos uma proposta da CN Code e uma de concorrente para o mesmo cliente."
+          description="Para aparecer aqui, é preciso ter pelo menos uma proposta da CN Cold e uma de concorrente para o mesmo cliente."
           action={
             <Link to="/app/upload/cncode">
-              <Button>Subir propostas CN Code</Button>
+              <Button>Subir propostas CN Cold</Button>
             </Link>
           }
         />
@@ -181,11 +181,11 @@ function HeadToHeadPage() {
   return (
     <div className="p-6 space-y-6">
       <PageHeader
-        title="Head-to-Head CN Code × Concorrentes"
-        description={`${filtered.length} cliente(s) onde a CN Code disputou contra ao menos um concorrente. Compare valor, prazo, garantia e gere explicação automática.`}
+        title="Head-to-Head CN Cold × Concorrentes"
+        description={`${filtered.length} cliente(s) onde a CN Cold disputou contra ao menos um concorrente. Compare valor, prazo, garantia e gere explicação automática.`}
         action={
           <Link to="/app/upload/cncode">
-            <Button variant="outline">Subir mais CN Code</Button>
+            <Button variant="outline">Subir mais CN Cold</Button>
           </Link>
         }
       />
@@ -205,7 +205,7 @@ function HeadToHeadPage() {
               <div>
                 <div className="text-lg font-semibold">{pair.clientName}</div>
                 <div className="text-xs text-muted-foreground uppercase tracking-wider">
-                  {pair.estado} · {pair.house.length} CN Code × {pair.rivals.length} concorrente(s)
+                  {pair.estado} · {pair.house.length} CN Cold × {pair.rivals.length} concorrente(s)
                 </div>
               </div>
             </div>
@@ -221,7 +221,7 @@ function HeadToHeadPage() {
                   return (
                     <div key={key} className="rounded-lg border p-4 space-y-3 bg-muted/20">
                       <div className="grid md:grid-cols-2 gap-3">
-                        <PropBox label="CN Code" tone="house" row={h} />
+                        <PropBox label="CN Cold" tone="house" row={h} />
                         <PropBox label={r.competitor?.nome || "Concorrente"} tone="rival" row={r} />
                       </div>
 
@@ -229,7 +229,7 @@ function HeadToHeadPage() {
                         {dvalor != null && (
                           <Badge variant={dvalor > 0 ? "destructive" : "default"} className="gap-1">
                             {dvalor > 0 ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}
-                            CN Code {dvalor > 0 ? "+" : ""}
+                            CN Cold {dvalor > 0 ? "+" : ""}
                             {dvalor.toFixed(1)}% vs {r.competitor?.nome}
                           </Badge>
                         )}
