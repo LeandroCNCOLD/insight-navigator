@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -6,6 +7,7 @@ import { PageHeader, EmptyState } from "@/components/dashboard-bits";
 import { Badge } from "@/components/ui/badge";
 import { FileText } from "lucide-react";
 import { formatBRL, formatDate } from "@/lib/format";
+import { OriginFilter, filterByOrigin, isHouseRow, type OriginValue } from "@/components/origin-filter";
 
 export const Route = createFileRoute("/app/proposals")({
   component: Proposals,
@@ -13,24 +15,41 @@ export const Route = createFileRoute("/app/proposals")({
 });
 
 function Proposals() {
+  const [origin, setOrigin] = useState<OriginValue>("all");
   const { data } = useQuery({
     queryKey: ["proposals"],
     queryFn: async () => {
       const { data } = await supabase.from("proposals")
-        .select("*,document:documents(file_name),client:clients(nome,estado),competitor:competitors(nome)")
+        .select("*,document:documents(file_name),client:clients(nome,estado),competitor:competitors(nome,is_house)")
         .order("data_proposta", { ascending: false });
       return data || [];
     },
   });
 
+  const counts = useMemo(() => {
+    const list = data || [];
+    return {
+      all: list.length,
+      house: list.filter(isHouseRow).length,
+      rival: list.filter((r: any) => !isHouseRow(r)).length,
+    };
+  }, [data]);
+
+  const filtered = useMemo(() => filterByOrigin((data || []) as any[], origin), [data, origin]);
+
   return (
     <div className="p-6 space-y-5">
-      <PageHeader title="Propostas" description={`${data?.length || 0} proposta(s) extraída(s)`} />
-      {!data?.length ? <EmptyState icon={FileText} title="Sem propostas" description="As propostas aparecerão aqui após o processamento de documentos." /> : (
+      <PageHeader
+        title="Propostas"
+        description={`${filtered.length} de ${data?.length || 0} proposta(s)`}
+        action={<OriginFilter value={origin} onChange={setOrigin} counts={counts} />}
+      />
+      {!filtered.length ? <EmptyState icon={FileText} title="Sem propostas" description="As propostas aparecerão aqui após o processamento de documentos." /> : (
         <Card className="gradient-surface border-border overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-muted/30 text-xs uppercase tracking-wider text-muted-foreground">
               <tr>
+                <th className="text-left px-4 py-2.5 font-medium">Origem</th>
                 <th className="text-left px-4 py-2.5 font-medium">Nº / Documento</th>
                 <th className="text-left px-4 py-2.5 font-medium">Cliente</th>
                 <th className="text-left px-4 py-2.5 font-medium">UF</th>
@@ -43,8 +62,15 @@ function Proposals() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {data.map((p: any) => (
+              {filtered.map((p: any) => (
                 <tr key={p.id} className="hover:bg-muted/20">
+                  <td className="px-4 py-2.5">
+                    {isHouseRow(p) ? (
+                      <Badge className="text-[10px] bg-success text-success-foreground hover:bg-success">CN Cold</Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px]">{p.competitor?.nome || "Concorrente"}</Badge>
+                    )}
+                  </td>
                   <td className="px-4 py-2.5">
                     <Link to="/app/documents/$id" params={{ id: p.document_id }} className="hover:text-primary">
                       <div className="font-mono text-xs">{p.numero || "—"}</div>
