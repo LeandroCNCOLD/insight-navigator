@@ -959,37 +959,6 @@ function PatternDetail({ row }: { row: PatternRow }) {
   );
 }
 
-function PatternDetailFinanceClose() {
-  // sentinel — kept for layout safety
-  return null;
-}
-
-function _PatternDetailLegacy({ row }: { row: PatternRow }) {
-  return (
-    <div className="space-y-4 pl-2 border-l-2 border-primary/30">
-      {/* Bloco 5: resumo financeiro */}
-      <div className="grid md:grid-cols-4 gap-3 pt-2 border-t border-border">
-        <DetailStat label="Ticket médio (proposta)" value={formatBRL(row.ticketMedio)} />
-        <DetailStat label="Valor médio / câmara física" value={formatBRL(row.valorMedioPorCamara)} />
-        <DetailStat
-          label="Valor médio / equipamento"
-          value={row.valorMedioPorEquipamento ? formatBRL(row.valorMedioPorEquipamento) : "Sem preço unitário"}
-        />
-        <DetailStat label="Valor total cotado" value={formatBRL(row.total)} />
-      </div>
-
-      <div className="grid md:grid-cols-4 gap-3 pt-2 border-t border-border">
-        <DetailStat label="Ticket médio (proposta)" value={formatBRL(row.ticketMedio)} />
-        <DetailStat label="Valor médio / câmara física" value={formatBRL(row.valorMedioPorCamara)} />
-        <DetailStat
-          label="Valor médio / equipamento"
-          value={row.valorMedioPorEquipamento ? formatBRL(row.valorMedioPorEquipamento) : "Sem preço unitário"}
-        />
-        <DetailStat label="Valor total cotado" value={formatBRL(row.total)} />
-      </div>
-    </div>
-  );
-}
 
 function DetailStat({
   icon: Icon,
