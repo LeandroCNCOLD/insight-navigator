@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.visit-route-planner]
 verify_jwt = false
+
+[functions.head-to-head-ai]
+verify_jwt = false
