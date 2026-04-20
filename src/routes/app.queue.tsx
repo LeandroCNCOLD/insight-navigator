@@ -85,8 +85,8 @@ function Queue() {
       />
 
       {stuck.length > 0 && (
-        <Card className="gradient-surface border-amber-500/40 p-4 flex items-center gap-4">
-          <AlertTriangle className="size-5 text-amber-500 shrink-0" />
+        <Card className="gradient-surface border-warning/40 p-4 flex items-center gap-4">
+          <AlertTriangle className="size-5 text-warning shrink-0" />
           <div className="flex-1 text-sm">
             <p className="font-medium">
               {stuck.length} documento(s) precisam de reprocessamento
