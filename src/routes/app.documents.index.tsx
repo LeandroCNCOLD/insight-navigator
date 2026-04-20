@@ -82,6 +82,38 @@ function DocsList() {
     toast.success(`${filtered.length} documento(s) na fila de reprocessamento`);
   };
 
+  const visibleIds = useMemo(() => filtered.map((d: any) => d.id), [filtered]);
+  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selected.has(id));
+  const someVisibleSelected = visibleIds.some((id) => selected.has(id));
+
+  const toggleAllVisible = () => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) visibleIds.forEach((id) => next.delete(id));
+      else visibleIds.forEach((id) => next.add(id));
+      return next;
+    });
+  };
+
+  const toggleOne = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const reprocessSelected = () => {
+    const ids = Array.from(selected);
+    if (!ids.length) return;
+    const map = new Map((data || []).map((d: any) => [d.id, d.file_name]));
+    ids.forEach((id) => uploadQueue.reprocess(id, map.get(id) || id));
+    uploadQueue.start();
+    toast.success(`${ids.length} documento(s) na fila de reprocessamento`);
+    setSelected(new Set());
+  };
+
   const queueCount = queue.filter(
     (it) => it.kind === "reprocess" && ["pending", "extracting"].includes(it.status),
   ).length;
