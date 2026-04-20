@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Swords, TrendingDown, TrendingUp, Loader2, Sparkles } from "lucide-react";
+import { Swords, TrendingDown, TrendingUp, Loader2, Sparkles, Brain } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +10,7 @@ import { PageHeader, EmptyState } from "@/components/dashboard-bits";
 import { supabase } from "@/integrations/supabase/client";
 import { formatBRL } from "@/lib/format";
 import { toast } from "sonner";
+import ReactMarkdown from "react-markdown";
 
 export const Route = createFileRoute("/app/dashboards/head-to-head")({
   component: HeadToHeadPage,
