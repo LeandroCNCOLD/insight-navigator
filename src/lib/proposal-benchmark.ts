@@ -10,9 +10,11 @@ export type ProposalCompareCandidate = {
   client?: {
     nome?: string | null;
     estado?: string | null;
+    cnpj?: string | null;
   } | null;
   competitor?: {
     nome?: string | null;
+    is_house?: boolean | null;
   } | null;
   document?: {
     file_name?: string | null;
@@ -81,8 +83,8 @@ export async function fetchCompareCandidates(): Promise<ProposalCompareCandidate
       data_proposta,
       status_proposta,
       score_confianca,
-      client:clients(nome,estado),
-      competitor:competitors(nome),
+      client:clients(nome,estado,cnpj),
+      competitor:competitors(nome,is_house),
       document:documents(file_name)
     `)
     .order("data_proposta", { ascending: false });
