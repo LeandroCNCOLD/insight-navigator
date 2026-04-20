@@ -1,6 +1,7 @@
 // Global upload queue — singleton that survives route changes.
 // Allows users to navigate away while uploads/AI processing continue in background.
 import { supabase } from "@/integrations/supabase/client";
+import { invokeFunction } from "@/lib/invoke-function";
 // Lazy import — document-parsers loads pdfjs-dist which is browser-only.
 async function parseDocument(file: File) {
   const mod = await import("@/lib/document-parsers");
@@ -340,22 +341,20 @@ class UploadQueue {
     if (!existingProp) {
       this.update(it.id, { status: "extracting", message: "Re-extraindo proposta com IA…" });
       const ext = doc.file_name.split(".").pop()?.toLowerCase() || "";
-      const { data: ai, error: aiErr } = await supabase.functions.invoke("extract-document", {
-        body: { text: doc.raw_text, fileName: doc.file_name, fileType: ext },
+      const { data: ai, error: aiErr } = await invokeFunction<{ extracted: any; error?: string }>("extract-document", {
+        text: doc.raw_text, fileName: doc.file_name, fileType: ext,
       });
-      if (aiErr) throw new Error(aiErr.message);
+      if (aiErr) throw aiErr;
       if (ai?.error) throw new Error(ai.error);
-      const ex = ai.extracted;
+      const ex = ai!.extracted;
       this.update(it.id, { status: "saving", message: "Persistindo proposta…" });
       await this.persistExtractedProposal(doc.id, ex, doc.owner_id, it.houseCompetitorId);
     }
 
     // Always run forensic on top
     this.update(it.id, { status: "extracting", message: "Análise forense profunda…" });
-    const { data, error } = await supabase.functions.invoke("forensic-analyze", {
-      body: { documentId: it.documentId },
-    });
-    if (error) throw new Error(error.message);
+    const { data, error } = await invokeFunction<any>("forensic-analyze", { documentId: it.documentId });
+    if (error) throw error;
     if (data?.error) throw new Error(data.error);
     this.update(it.id, {
       status: "done",
@@ -454,13 +453,13 @@ class UploadQueue {
 
       // 4) AI extraction
       this.update(it.id, { status: "extracting" });
-      const { data: ai, error: aiErr } = await supabase.functions.invoke("extract-document", {
-        body: { text: parsed.text, fileName: file.name, fileType: ext },
+      const { data: ai, error: aiErr } = await invokeFunction<{ extracted: any; error?: string }>("extract-document", {
+        text: parsed.text, fileName: file.name, fileType: ext,
       });
-      if (aiErr) throw new Error(aiErr.message);
+      if (aiErr) throw aiErr;
       if (ai?.error) throw new Error(ai.error);
 
-      const ex = ai.extracted;
+      const ex = ai!.extracted;
       const hasClientData = !!(ex.cliente_nome || ex.cliente_razao_social || ex.cliente_cidade || ex.segmento);
       const hasCommercialData = ex.valor_total != null || !!ex.condicao_pagamento || !!ex.numero;
       const hasTechnicalData = !!(
