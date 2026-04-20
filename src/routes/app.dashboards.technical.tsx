@@ -157,6 +157,7 @@ function Tech() {
           occurrences: [],
           totalQty: 0,
           capacidadeKcal: null,
+          capacidadeKcalUnit: null,
           potenciaHp: null,
           valorUnit: null,
           gases: [],
@@ -172,36 +173,45 @@ function Tech() {
         };
         map.set(key, g);
       }
-      g.occurrences.push({ ...e, ctx });
-      g.totalQty += Number(e.quantidade) || 1;
+      const grp = g;
+      const tempEvap = pickNum(dt, [
+        "temperatura_evaporacao",
+        "temp_evaporacao",
+        "temperatura_c",
+        "temperatura",
+        "temp_camara",
+        "temp_operacao",
+      ]);
+      const capacidadeUnitaria = inferUnitCapacity(e.capacidade_kcal, e.quantidade);
+      grp.occurrences.push({ ...e, ctx, capacidadeUnitaria, tempEvap });
+      grp.totalQty += Number(e.quantidade) || 1;
 
-      pushUniq(g.gases, e.gas_refrigerante);
-      pushUniq(g.compressores, e.compressor);
-      pushUniq(g.condensacoes, e.tipo_condensacao);
-      pushUniq(g.degelos, e.tipo_degelo);
+      pushUniq(grp.gases, e.gas_refrigerante);
+      pushUniq(grp.compressores, e.compressor);
+      pushUniq(grp.condensacoes, e.tipo_condensacao);
+      pushUniq(grp.degelos, e.tipo_degelo);
 
       // Pull context from dados_tecnicos JSON (varies per extraction)
-      pushUniq(g.tensoes, pickStr(dt, ["tensao", "voltagem", "alimentacao"]));
-      pushUniq(g.aplicacoes, pickStr(dt, ["aplicacao", "uso", "finalidade", "tipo_camara"]));
-      pushUniq(g.fluidosArmazenados, pickStr(dt, ["produto_armazenado", "fluido", "carga"]));
-      if (ctx?.client?.nome) pushUniq(g.clientes, ctx.client.nome);
+      pushUniq(grp.tensoes, pickStr(dt, ["tensao", "voltagem", "alimentacao"]));
+      pushUniq(grp.aplicacoes, pickStr(dt, ["aplicacao", "uso", "finalidade", "tipo_camara"]));
+      pushUniq(grp.fluidosArmazenados, pickStr(dt, ["produto_armazenado", "fluido", "carga"]));
+      if (ctx?.client?.nome) pushUniq(grp.clientes, ctx.client.nome);
 
-      const temp = pickNum(dt, ["temperatura_c", "temperatura", "temp_camara", "temp_operacao"]);
-      if (temp != null) {
-        if (!g.temperaturas) g.temperaturas = { min: temp, max: temp };
+      if (tempEvap != null) {
+        if (!grp.temperaturas) grp.temperaturas = { min: tempEvap, max: tempEvap };
         else {
-          g.temperaturas.min = Math.min(g.temperaturas.min, temp);
-          g.temperaturas.max = Math.max(g.temperaturas.max, temp);
+          grp.temperaturas.min = Math.min(grp.temperaturas.min, tempEvap);
+          grp.temperaturas.max = Math.max(grp.temperaturas.max, tempEvap);
         }
       }
       const carga = pickNum(dt, ["carga_termica_kcal", "carga_termica", "kcal"]);
       if (carga != null) {
-        const cur = g.cargasTermicas;
-        if (!cur) g.cargasTermicas = { min: carga, max: carga, avg: carga };
+        const cur = grp.cargasTermicas;
+        if (!cur) grp.cargasTermicas = { min: carga, max: carga, avg: carga };
         else {
           cur.min = Math.min(cur.min, carga);
           cur.max = Math.max(cur.max, carga);
-          cur.avg = (cur.avg * (g.occurrences.length - 1) + carga) / g.occurrences.length;
+          cur.avg = (cur.avg * (grp.occurrences.length - 1) + carga) / grp.occurrences.length;
         }
       }
     });
@@ -209,9 +219,13 @@ function Tech() {
     // Compute min/max/avg numeric ranges
     map.forEach((g) => {
       g.capacidadeKcal = rangeOf(g.occurrences.map((o) => Number(o.capacidade_kcal)));
+      g.capacidadeKcalUnit = rangeOf(
+        g.occurrences.map((o) => Number(o.capacidadeUnitaria)).filter((n) => n > 0)
+      );
       g.potenciaHp = rangeOf(g.occurrences.map((o) => Number(o.potencia_hp)));
       g.valorUnit = rangeOf(g.occurrences.map((o) => Number(o.valor_unitario)));
     });
+
 
     return Array.from(map.values()).sort((a, b) => b.totalQty - a.totalQty);
   }, [data, propMap]);
