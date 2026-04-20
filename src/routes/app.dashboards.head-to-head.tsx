@@ -29,7 +29,7 @@ type Row = {
   numero: string | null;
   data_proposta: string | null;
   dados_tecnicos: any;
-  client: { nome: string | null; estado: string | null } | null;
+  client: { nome: string | null; estado: string | null; cnpj: string | null } | null;
   competitor: { nome: string | null; is_house: boolean | null } | null;
 };
 
@@ -41,12 +41,12 @@ type Pair = {
   rivals: Row[];
 };
 
-async function fetchHeadToHead(): Promise<Pair[]> {
+async function fetchHeadToHead(): Promise<{ pairs: Pair[]; allRows: Row[] }> {
   const { data, error } = await supabase
     .from("proposals")
     .select(
       `id, client_id, competitor_id, valor_total, status_proposta, prazo_entrega_dias, garantia_meses, condicao_pagamento, numero, data_proposta, dados_tecnicos,
-       client:clients(nome,estado),
+       client:clients(nome,estado,cnpj),
        competitor:competitors(nome,is_house)`,
     )
     .not("client_id", "is", null);
@@ -69,7 +69,8 @@ async function fetchHeadToHead(): Promise<Pair[]> {
     if (r.competitor?.is_house) p.house.push(r);
     else p.rivals.push(r);
   }
-  return Array.from(byClient.values()).filter((p) => p.house.length > 0 && p.rivals.length > 0);
+  const pairs = Array.from(byClient.values()).filter((p) => p.house.length > 0 && p.rivals.length > 0);
+  return { pairs, allRows: rows };
 }
 
 function statusVariant(s: string | null): "default" | "secondary" | "destructive" | "outline" {
@@ -89,8 +90,31 @@ function HeadToHeadPage() {
 
   const q = useQuery({ queryKey: ["head-to-head"], queryFn: fetchHeadToHead });
 
+  const pairs = q.data?.pairs || [];
+  const allRows = q.data?.allRows || [];
+  const houseRows = useMemo(() => allRows.filter((r) => r.competitor?.is_house), [allRows]);
+  const rivalRows = useMemo(() => allRows.filter((r) => !r.competitor?.is_house), [allRows]);
+
+  const [manualHouseId, setManualHouseId] = useState("");
+  const [manualRivalId, setManualRivalId] = useState("");
+  const [manualSearch, setManualSearch] = useState("");
+  const [manualExplain, setManualExplain] = useState<string | null>(null);
+  const [manualLoading, setManualLoading] = useState(false);
+
+  const matchesQuery = (r: Row, q: string) => {
+    if (!q) return true;
+    const t = q.toLowerCase();
+    return [r.numero, r.client?.nome, r.client?.estado, r.client?.cnpj, r.competitor?.nome]
+      .filter(Boolean)
+      .some((v) => String(v).toLowerCase().includes(t));
+  };
+  const houseFiltered = houseRows.filter((r) => matchesQuery(r, manualSearch));
+  const rivalFiltered = rivalRows.filter((r) => matchesQuery(r, manualSearch));
+  const manualHouse = houseRows.find((r) => r.id === manualHouseId) || null;
+  const manualRival = rivalRows.find((r) => r.id === manualRivalId) || null;
+
   const filtered = useMemo(() => {
-    const list = q.data || [];
+    const list = pairs;
     const s = search.trim().toLowerCase();
     if (!s) return list;
     return list.filter(
@@ -99,7 +123,7 @@ function HeadToHeadPage() {
         p.estado.toLowerCase().includes(s) ||
         p.rivals.some((r) => r.competitor?.nome?.toLowerCase().includes(s)),
     );
-  }, [q.data, search]);
+  }, [pairs, search]);
 
   async function runGlobalAI() {
     setAiLoading(true);
@@ -175,32 +199,58 @@ function HeadToHeadPage() {
     );
   }
 
-  if (!filtered.length) {
-    return (
-      <div className="p-6 space-y-6">
-        <PageHeader
-          title="Head-to-Head CN Cold × Concorrentes"
-          description="Onde a CN Cold disputou contra concorrentes e o que aconteceu."
-        />
-        <EmptyState
-          icon={Swords}
-          title="Sem disputas pareadas ainda"
-          description="Para aparecer aqui, é preciso ter pelo menos uma proposta da CN Cold e uma de concorrente para o mesmo cliente."
-          action={
-            <Link to="/app/upload/cncode">
-              <Button>Subir propostas CN Cold</Button>
-            </Link>
-          }
-        />
-      </div>
-    );
+  async function explainManual() {
+    if (!manualHouse || !manualRival) return;
+    setManualLoading(true);
+    setManualExplain(null);
+    try {
+      const ctx = {
+        cliente_casa: manualHouse.client?.nome,
+        cliente_rival: manualRival.client?.nome,
+        casa: {
+          fornecedor: manualHouse.competitor?.nome,
+          numero: manualHouse.numero,
+          valor: manualHouse.valor_total,
+          prazo_entrega_dias: manualHouse.prazo_entrega_dias,
+          garantia_meses: manualHouse.garantia_meses,
+          pagamento: manualHouse.condicao_pagamento,
+          status: manualHouse.status_proposta,
+          tecnico: manualHouse.dados_tecnicos,
+        },
+        concorrente: {
+          fornecedor: manualRival.competitor?.nome,
+          numero: manualRival.numero,
+          valor: manualRival.valor_total,
+          prazo_entrega_dias: manualRival.prazo_entrega_dias,
+          garantia_meses: manualRival.garantia_meses,
+          pagamento: manualRival.condicao_pagamento,
+          status: manualRival.status_proposta,
+          tecnico: manualRival.dados_tecnicos,
+        },
+      };
+      const pergunta = `Compare estas duas propostas (uma da CN Cold e uma do concorrente ${manualRival.competitor?.nome || ""}) selecionadas manualmente. Aponte: (1) quem está mais barato e Δ%; (2) Δ prazo, Δ garantia, diferenças de pagamento; (3) provável motivo de decisão; (4) recomendação acionável para a CN Cold no próximo confronto. Contexto JSON: ${JSON.stringify(ctx)}`;
+      const { data, error } = await supabase.functions.invoke("market-intelligence", {
+        body: { question: pergunta, context: ctx },
+      });
+      if (error) throw error;
+      const answer = (data as any)?.answer || (data as any)?.response || (data as any)?.text || JSON.stringify(data);
+      setManualExplain(answer);
+    } catch (e: any) {
+      toast.error(`Falha ao analisar par manual: ${e.message || e}`);
+    } finally {
+      setManualLoading(false);
+    }
   }
 
   return (
     <div className="p-6 space-y-6">
       <PageHeader
         title="Head-to-Head CN Cold × Concorrentes"
-        description={`${filtered.length} cliente(s) onde a CN Cold disputou contra ao menos um concorrente. Compare valor, prazo, garantia e gere explicação automática.`}
+        description={
+          filtered.length
+            ? `${filtered.length} cliente(s) com confronto automático por CNPJ. Você também pode parear propostas manualmente abaixo.`
+            : "Selecione manualmente uma proposta CN Cold e uma do concorrente para comparar — ou gere a análise automática por CNPJ."
+        }
         action={
           <Link to="/app/upload/cncode">
             <Button variant="outline">Subir mais CN Cold</Button>
@@ -244,13 +294,88 @@ function HeadToHeadPage() {
         )}
       </Card>
 
-      <Card className="p-4">
+      <Card className="p-5 space-y-3">
+        <div className="flex items-start gap-3">
+          <div className="rounded-md bg-success/10 p-2"><Swords className="size-5 text-success" /></div>
+          <div>
+            <div className="font-semibold">Pareamento manual</div>
+            <div className="text-xs text-muted-foreground max-w-2xl">
+              Busque por número da proposta, nome do cliente ou CNPJ. Selecione uma proposta da CN Cold e uma do concorrente — a IA gera a análise comparativa do par.
+            </div>
+          </div>
+        </div>
         <Input
-          placeholder="Filtrar por cliente, UF ou concorrente…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar por nº proposta, cliente, CNPJ, UF ou concorrente…"
+          value={manualSearch}
+          onChange={(e) => setManualSearch(e.target.value)}
         />
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="rounded-md border border-l-4 border-l-success bg-background p-2 space-y-1">
+            <div className="text-[11px] uppercase tracking-wider text-muted-foreground px-1">Proposta CN Cold</div>
+            <select
+              className="h-9 w-full rounded-md border bg-background px-2 text-sm"
+              value={manualHouseId}
+              onChange={(e) => setManualHouseId(e.target.value)}
+            >
+              <option value="">— Selecione —</option>
+              {houseFiltered.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {(r.client?.nome || "Cliente")} · {r.numero || r.id.slice(0, 6)} · {r.client?.estado || "UF"} · {formatBRL(r.valor_total)}{r.client?.cnpj ? ` · CNPJ ${r.client.cnpj}` : ""}
+                </option>
+              ))}
+            </select>
+            <div className="text-[11px] text-muted-foreground px-1">{houseFiltered.length} disponível(is)</div>
+          </div>
+          <div className="rounded-md border border-l-4 border-l-primary bg-background p-2 space-y-1">
+            <div className="text-[11px] uppercase tracking-wider text-muted-foreground px-1">Proposta Concorrente</div>
+            <select
+              className="h-9 w-full rounded-md border bg-background px-2 text-sm"
+              value={manualRivalId}
+              onChange={(e) => setManualRivalId(e.target.value)}
+            >
+              <option value="">— Selecione —</option>
+              {rivalFiltered.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {(r.competitor?.nome || "Concorrente")} · {r.client?.nome || "Cliente"} · {r.numero || r.id.slice(0, 6)} · {formatBRL(r.valor_total)}{r.client?.cnpj ? ` · CNPJ ${r.client.cnpj}` : ""}
+                </option>
+              ))}
+            </select>
+            <div className="text-[11px] text-muted-foreground px-1">{rivalFiltered.length} disponível(is)</div>
+          </div>
+        </div>
+        {manualHouse && manualRival && (
+          <div className="grid gap-3 md:grid-cols-2">
+            <PropBox label="CN Cold" tone="house" row={manualHouse} />
+            <PropBox label={manualRival.competitor?.nome || "Concorrente"} tone="rival" row={manualRival} />
+          </div>
+        )}
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button onClick={explainManual} disabled={!manualHouse || !manualRival || manualLoading}>
+            {manualLoading ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Sparkles className="size-4 mr-2" />}
+            Analisar par com IA
+          </Button>
+          {(manualHouseId || manualRivalId) && (
+            <Button variant="ghost" size="sm" onClick={() => { setManualHouseId(""); setManualRivalId(""); setManualExplain(null); }}>
+              Limpar seleção
+            </Button>
+          )}
+        </div>
+        {manualExplain && (
+          <div className="rounded-md border bg-background/60 p-4 prose prose-sm dark:prose-invert max-w-none">
+            <ReactMarkdown>{manualExplain}</ReactMarkdown>
+          </div>
+        )}
       </Card>
+
+      {filtered.length > 0 && (
+        <Card className="p-4">
+          <Input
+            placeholder="Filtrar confrontos automáticos por cliente, UF ou concorrente…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </Card>
+      )}
 
       <div className="space-y-4">
         {filtered.map((pair) => (
