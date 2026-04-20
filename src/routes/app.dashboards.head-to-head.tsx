@@ -103,9 +103,35 @@ function HeadToHeadPage() {
   const [manualHouseId, setManualHouseId] = useState("");
   const [manualRivalId, setManualRivalId] = useState("");
   const [manualSearch, setManualSearch] = useState("");
+  const [clientFilter, setClientFilter] = useState<string>("__all__");
   const [manualExplain, setManualExplain] = useState<string | null>(null);
   const [manualLoading, setManualLoading] = useState(false);
 
+  const norm = (s: string | null | undefined) =>
+    (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+
+  // Build client groups (cnpj-first, fallback to normalized name) so that
+  // multiple proposals of the same client cluster under one filter entry.
+  const clientGroups = useMemo(() => {
+    const map = new Map<string, { key: string; label: string; count: number; cnpj: string | null }>();
+    for (const r of allRows) {
+      const cnpj = (r.client?.cnpj || "").replace(/\D/g, "");
+      const key = cnpj.length >= 8 ? `cnpj:${cnpj}` : `name:${norm(r.client?.nome)}`;
+      if (key === "name:" || key === "cnpj:") continue;
+      const label = r.client?.nome || (cnpj ? `CNPJ ${cnpj}` : "Cliente");
+      const cur = map.get(key);
+      if (cur) cur.count += 1;
+      else map.set(key, { key, label, count: 1, cnpj: cnpj || null });
+    }
+    return Array.from(map.values()).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+  }, [allRows]);
+
+  const matchesClient = (r: Row) => {
+    if (clientFilter === "__all__") return true;
+    const cnpj = (r.client?.cnpj || "").replace(/\D/g, "");
+    const key = cnpj.length >= 8 ? `cnpj:${cnpj}` : `name:${norm(r.client?.nome)}`;
+    return key === clientFilter;
+  };
   const matchesQuery = (r: Row, q: string) => {
     if (!q) return true;
     const t = q.toLowerCase();
@@ -113,8 +139,8 @@ function HeadToHeadPage() {
       .filter(Boolean)
       .some((v) => String(v).toLowerCase().includes(t));
   };
-  const houseFiltered = houseRows.filter((r) => matchesQuery(r, manualSearch));
-  const rivalFiltered = rivalRows.filter((r) => matchesQuery(r, manualSearch));
+  const houseFiltered = houseRows.filter((r) => matchesClient(r) && matchesQuery(r, manualSearch));
+  const rivalFiltered = rivalRows.filter((r) => matchesClient(r) && matchesQuery(r, manualSearch));
   const manualHouse = houseRows.find((r) => r.id === manualHouseId) || null;
   const manualRival = rivalRows.find((r) => r.id === manualRivalId) || null;
 
@@ -320,11 +346,30 @@ function HeadToHeadPage() {
             </div>
           </div>
         </div>
-        <Input
-          placeholder="Buscar por nº proposta, cliente, CNPJ, UF ou concorrente…"
-          value={manualSearch}
-          onChange={(e) => setManualSearch(e.target.value)}
-        />
+        <div className="grid gap-2 md:grid-cols-[1fr_1fr] items-start">
+          <Input
+            placeholder="Buscar por nº proposta, cliente, CNPJ, UF ou concorrente…"
+            value={manualSearch}
+            onChange={(e) => setManualSearch(e.target.value)}
+          />
+          <div className="space-y-1">
+            <select
+              className="h-9 w-full rounded-md border bg-background px-2 text-sm"
+              value={clientFilter}
+              onChange={(e) => { setClientFilter(e.target.value); setManualHouseId(""); setManualRivalId(""); }}
+            >
+              <option value="__all__">Todos os clientes ({clientGroups.length})</option>
+              {clientGroups.map((g) => (
+                <option key={g.key} value={g.key}>
+                  {g.label}{g.cnpj ? ` · CNPJ ${g.cnpj}` : ""} · {g.count} proposta(s)
+                </option>
+              ))}
+            </select>
+            <div className="text-[11px] text-muted-foreground px-1">
+              Agrupa propostas pelo mesmo cliente (CNPJ ou nome) — um cliente pode ter várias propostas.
+            </div>
+          </div>
+        </div>
         <div className="grid gap-3 md:grid-cols-2">
           <div className="rounded-md border border-l-4 border-l-success bg-background p-2 space-y-1">
             <div className="text-[11px] uppercase tracking-wider text-muted-foreground px-1">Proposta CN Cold</div>
