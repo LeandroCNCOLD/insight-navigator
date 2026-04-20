@@ -734,6 +734,9 @@ function PatternDetail({ row }: { row: PatternRow }) {
         </div>
       </div>
 
+      {/* Bloco 2.5: Detalhamento por câmara (por cliente) — requerida × ofertada × delta */}
+      <CamaraBreakdown row={row} />
+
       {/* Bloco 3: equipamentos detalhados (modelos) */}
       {modelos.length > 0 && (
         <div>
