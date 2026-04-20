@@ -89,6 +89,29 @@ type EquipmentRow = {
   capacidade_kcal: number | null;
 };
 
+type ClientRow = {
+  id: string;
+  nome: string;
+  razao_social: string | null;
+  cidade: string | null;
+  estado: string | null;
+  segmento: string | null;
+  contato_nome: string | null;
+  contato_cargo: string | null;
+  telefone: string | null;
+  whatsapp: string | null;
+  email: string | null;
+  endereco: string | null;
+  cep: string | null;
+  cnpj: string | null;
+};
+
+type ClientPattern = {
+  client: ClientRow;
+  propostas: number;
+  valorTotal: number;
+};
+
 type PatternRow = {
   padrao: string;
   count: number;
@@ -107,7 +130,7 @@ type PatternRow = {
   umidade_pct?: number;
   carga_termica_kcal_h?: number;
   // distribuição de sistemas
-  sistemas: Record<string, number>; // Plug-In, Split, etc → nº propostas
+  sistemas: Record<string, number>;
   compressores: Record<string, number>;
   gases: Record<string, number>;
   // equipamentos detalhados
@@ -123,7 +146,12 @@ type PatternRow = {
   potenciaMediaHp?: number;
   capacidadeMediaKcal?: number;
   proposalIds: string[];
+  // geo + clientes
+  clientesDetalhe: ClientPattern[];
+  estados: Record<string, number>; // estado → nº clientes
+  cidades: Record<string, number>; // "Cidade-UF" → nº clientes
 };
+
 
 export const Route = createFileRoute("/app/dashboards/strategic")({
   component: Strategic,
