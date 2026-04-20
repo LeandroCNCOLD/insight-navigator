@@ -133,12 +133,21 @@ function Clients() {
     <div className="p-6 space-y-5">
       <PageHeader title="Clientes" description={`${data?.length || 0} cliente(s) · CRM de prospecção`} />
 
-      <Input
-        placeholder="Buscar por nome, CNPJ, cidade ou e-mail…"
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        className="max-w-md"
-      />
+      <div className="flex flex-wrap items-center gap-3">
+        <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
+          <TabsList>
+            <TabsTrigger value="todos">Todos <span className="ml-1.5 text-[10px] opacity-70">({counts.todos})</span></TabsTrigger>
+            <TabsTrigger value="house">CN Cold <span className="ml-1.5 text-[10px] opacity-70">({counts.house})</span></TabsTrigger>
+            <TabsTrigger value="concorrentes">Concorrentes <span className="ml-1.5 text-[10px] opacity-70">({counts.concorrentes})</span></TabsTrigger>
+          </TabsList>
+        </Tabs>
+        <Input
+          placeholder="Buscar por nome, CNPJ, cidade ou e-mail…"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          className="max-w-md"
+        />
+      </div>
 
       {!filtered.length ? (
         <EmptyState
