@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -6,6 +7,7 @@ import { PageHeader, KpiCard } from "@/components/dashboard-bits";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell, Legend } from "recharts";
 import { formatBRL } from "@/lib/format";
 import { DollarSign, TrendingUp, FileText, Trophy } from "lucide-react";
+import { OriginFilter, filterByOrigin, isHouseRow, type OriginValue } from "@/components/origin-filter";
 
 export const Route = createFileRoute("/app/dashboards/commercial")({
   component: Dash,
@@ -15,22 +17,34 @@ export const Route = createFileRoute("/app/dashboards/commercial")({
 const COLORS = ["oklch(0.65 0.20 250)", "oklch(0.68 0.17 152)", "oklch(0.78 0.15 75)", "oklch(0.66 0.20 320)", "oklch(0.70 0.18 195)"];
 
 function Dash() {
+  const [origin, setOrigin] = useState<OriginValue>("all");
   const { data } = useQuery({
     queryKey: ["dash-commercial"],
     queryFn: async () => {
-      const { data: props } = await supabase.from("proposals").select("*,client:clients(nome,estado)");
+      const { data: props } = await supabase.from("proposals").select("*,client:clients(nome,estado),competitor:competitors(nome,is_house)");
       return props || [];
     },
   });
 
-  const total = (data || []).reduce((s, p) => s + (Number(p.valor_total) || 0), 0);
-  const ticket = data?.length ? total / data.length : 0;
-  const contratadas = (data || []).filter((p) => p.status_proposta?.toLowerCase().includes("contrat")).length;
+  const counts = useMemo(() => {
+    const list = data || [];
+    return {
+      all: list.length,
+      house: list.filter(isHouseRow as any).length,
+      rival: list.filter((r: any) => !isHouseRow(r)).length,
+    };
+  }, [data]);
+
+  const scoped = useMemo(() => filterByOrigin((data || []) as any[], origin), [data, origin]);
+
+  const total = scoped.reduce((s, p: any) => s + (Number(p.valor_total) || 0), 0);
+  const ticket = scoped.length ? total / scoped.length : 0;
+  const contratadas = scoped.filter((p: any) => p.status_proposta?.toLowerCase().includes("contrat")).length;
 
   const byState: Record<string, number> = {};
   const byClient: Record<string, number> = {};
   const byPay: Record<string, number> = {};
-  (data || []).forEach((p: any) => {
+  scoped.forEach((p: any) => {
     const v = Number(p.valor_total) || 0;
     if (p.client?.estado) byState[p.client.estado] = (byState[p.client.estado] || 0) + v;
     if (p.client?.nome) byClient[p.client.nome] = (byClient[p.client.nome] || 0) + v;
@@ -42,9 +56,13 @@ function Dash() {
 
   return (
     <div className="p-6 space-y-5">
-      <PageHeader title="Painel comercial" description="Valores, tickets e ranking de clientes/estados." />
+      <PageHeader
+        title="Painel comercial"
+        description="Valores, tickets e ranking de clientes/estados."
+        action={<OriginFilter value={origin} onChange={setOrigin} counts={counts} />}
+      />
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <KpiCard label="Propostas" value={data?.length || 0} icon={FileText} />
+        <KpiCard label="Propostas" value={scoped.length} icon={FileText} />
         <KpiCard label="Valor mapeado" value={formatBRL(total)} icon={DollarSign} />
         <KpiCard label="Ticket médio" value={formatBRL(ticket)} icon={TrendingUp} />
         <KpiCard label="Contratadas" value={contratadas} icon={Trophy} />

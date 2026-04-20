@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Swords, TrendingDown, TrendingUp, Loader2, Sparkles } from "lucide-react";
+import { Swords, TrendingDown, TrendingUp, Loader2, Sparkles, Brain } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +10,7 @@ import { PageHeader, EmptyState } from "@/components/dashboard-bits";
 import { supabase } from "@/integrations/supabase/client";
 import { formatBRL } from "@/lib/format";
 import { toast } from "sonner";
+import ReactMarkdown from "react-markdown";
 
 export const Route = createFileRoute("/app/dashboards/head-to-head")({
   component: HeadToHeadPage,
@@ -83,6 +84,8 @@ function HeadToHeadPage() {
   const [search, setSearch] = useState("");
   const [explainingKey, setExplainingKey] = useState<string | null>(null);
   const [explanations, setExplanations] = useState<Record<string, string>>({});
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiResult, setAiResult] = useState<{ analysis: string; confronts_count: number; confronts: any[] } | null>(null);
 
   const q = useQuery({ queryKey: ["head-to-head"], queryFn: fetchHeadToHead });
 
@@ -97,6 +100,21 @@ function HeadToHeadPage() {
         p.rivals.some((r) => r.competitor?.nome?.toLowerCase().includes(s)),
     );
   }, [q.data, search]);
+
+  async function runGlobalAI() {
+    setAiLoading(true);
+    setAiResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("head-to-head-ai", { body: {} });
+      if (error) throw error;
+      setAiResult(data as any);
+      toast.success(`Análise IA gerada para ${(data as any)?.confronts_count || 0} confronto(s).`);
+    } catch (e: any) {
+      toast.error(`Falha ao gerar análise IA: ${e.message || e}`);
+    } finally {
+      setAiLoading(false);
+    }
+  }
 
   async function explain(pair: Pair, house: Row, rival: Row) {
     const key = `${house.id}|${rival.id}`;
@@ -189,6 +207,42 @@ function HeadToHeadPage() {
           </Link>
         }
       />
+
+      <Card className="p-5 gradient-surface border-border space-y-3">
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div className="flex items-start gap-3">
+            <div className="rounded-md bg-primary/10 p-2"><Brain className="size-5 text-primary" /></div>
+            <div>
+              <div className="font-semibold">Análise IA — Confronto por CNPJ</div>
+              <div className="text-xs text-muted-foreground max-w-xl">
+                A IA cruza propostas da CN Cold e dos concorrentes pelo CNPJ do cliente (com fallback por nome) e gera uma sugestão de análise consolidada do porquê de cada disputa.
+              </div>
+            </div>
+          </div>
+          <Button onClick={runGlobalAI} disabled={aiLoading}>
+            {aiLoading ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Sparkles className="size-4 mr-2" />}
+            {aiLoading ? "Analisando…" : "Gerar análise IA"}
+          </Button>
+        </div>
+        {aiResult && (
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-2 text-xs">
+              <Badge variant="secondary">{aiResult.confronts_count} confronto(s)</Badge>
+              {aiResult.confronts.slice(0, 6).map((c: any, i: number) => (
+                <Badge key={i} variant="outline" className="font-mono">
+                  {c.cliente} {c.cnpj ? `· ${c.cnpj}` : ""} ({c.house_count}×{c.rivals_count})
+                </Badge>
+              ))}
+              {aiResult.confronts.length > 6 && (
+                <Badge variant="outline">+{aiResult.confronts.length - 6}</Badge>
+              )}
+            </div>
+            <div className="rounded-md border bg-background/60 p-4 prose prose-sm dark:prose-invert max-w-none">
+              <ReactMarkdown>{aiResult.analysis || "Sem análise."}</ReactMarkdown>
+            </div>
+          </div>
+        )}
+      </Card>
 
       <Card className="p-4">
         <Input
