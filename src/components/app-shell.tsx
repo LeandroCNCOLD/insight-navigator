@@ -3,11 +3,14 @@ import {
   LayoutDashboard, Upload, FileText, Users, Building2, Wrench, BarChart3,
   Map, Brain, GitCompare, ClipboardCheck, BookOpen, ListChecks,
   ShieldCheck, Settings, LogOut, Search, Lightbulb, Target,
+  RefreshCw, Tag,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { APP_VERSION } from "@/lib/changelog";
+import { toast } from "sonner";
 
 type NavItem = { to: string; label: string; icon: typeof LayoutDashboard; exact?: boolean };
 const nav: { section: string; items: NavItem[] }[] = [
@@ -42,12 +45,33 @@ const nav: { section: string; items: NavItem[] }[] = [
     { to: "/app/dictionaries", label: "Dicionários", icon: BookOpen },
     { to: "/app/audit", label: "Auditoria", icon: ShieldCheck },
   ]},
-  { section: "Administração", items: [
-    { to: "/app/settings", label: "Configurações", icon: Settings, exact: true },
+  { section: "Configurações", items: [
+    { to: "/app/settings", label: "Conta", icon: Settings, exact: true },
     { to: "/app/settings/users", label: "Usuários", icon: Users },
-    { to: "/app/settings/versions", label: "Versões & Revisões", icon: ClipboardCheck },
+    { to: "/app/settings/versions", label: "Versões & Revisões", icon: Tag },
   ]},
 ];
+
+async function handleHardReload() {
+  try {
+    if ("caches" in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((k) => caches.delete(k)));
+    }
+    if ("serviceWorker" in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((r) => r.unregister()));
+    }
+    toast.success("Cache limpo, recarregando...");
+  } catch {
+    // ignore — still reload
+  }
+  setTimeout(() => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("_v", Date.now().toString());
+    window.location.replace(url.toString());
+  }, 300);
+}
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, signOut } = useAuth();
@@ -119,6 +143,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
             <Input placeholder="Busca global em documentos, clientes, equipamentos..." className="pl-8 h-9 bg-muted/30 border-border" />
           </div>
+          <Link
+            to="/app/settings/versions"
+            className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted/40 hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"
+            title="Ver changelog"
+          >
+            <Tag className="size-3" />
+            v{APP_VERSION}
+          </Link>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleHardReload}
+            className="h-8 gap-1.5 text-xs"
+            title="Atualizar limpando cache do navegador"
+          >
+            <RefreshCw className="size-3.5" />
+            Atualizar
+          </Button>
         </header>
         <div className="flex-1 overflow-y-auto scrollbar-thin">
           {children}
