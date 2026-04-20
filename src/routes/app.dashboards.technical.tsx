@@ -199,7 +199,7 @@ function Tech() {
         "temp_camara",
         "temp_operacao",
       ]);
-      const capacidadeUnitaria = inferUnitCapacity(e.capacidade_kcal, e.quantidade);
+      const capacidadeUnitaria = resolveUnitCapacity(e.capacidade_kcal, e.quantidade, dt);
       grp.occurrences.push({ ...e, ctx, capacidadeUnitaria, tempEvap });
       grp.totalQty += Number(e.quantidade) || 1;
 
