@@ -269,7 +269,8 @@ function validateForensicExtraction(ex: any, sourceText: string) {
   const hasClient = !!cliente || !!normalizeSpaces(ex?.cliente?.cnpj) || !!normalizeSpaces(ex?.cliente?.email);
 
   if (!hasTechnical && !hasClient) {
-    return { valid: false, reason: "Análise forense não encontrou dados técnicos nem cadastrais suficientes" };
+    // Soft-purge: documento sem dados técnicos/cadastrais úteis, mas mantém o que tiver (resumos, riscos, etc.)
+    console.warn("[validateForensicExtraction] sem dados técnicos nem cadastrais, prosseguindo mesmo assim");
   }
 
   if (cliente) {
