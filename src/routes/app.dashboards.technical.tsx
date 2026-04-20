@@ -77,7 +77,13 @@ type ModelGroup = {
   modelo: string;
   marca: string;
   tipo: string;
-  occurrences: Array<EquipRow & { ctx: ProposalCtx | null; capacidadeUnitaria: number | null; tempEvap: number | null }>;
+  occurrences: Array<
+    EquipRow & {
+      ctx: ProposalCtx | null;
+      capacidadeUnitaria: { value: number; source: "extracted" | "suggested" } | null;
+      tempEvap: number | null;
+    }
+  >;
   totalQty: number;
   capacidadeKcal: { min: number; max: number; avg: number } | null;
   capacidadeKcalUnit: { min: number; max: number; avg: number } | null;
@@ -95,23 +101,34 @@ type ModelGroup = {
   clientes: string[];
 };
 
-// Heuristic: infer unit capacity from registered total when value seems aggregated.
-// If quantidade > 1 and capacidade_kcal divides cleanly OR is suspiciously large
-// (>= 4x quantidade), assume it's a total and divide. Otherwise treat as unitary.
-function inferUnitCapacity(
+// Try to find an explicitly extracted unit capacity in dados_tecnicos JSON before
+// falling back to division-based suggestion. Returns null when nothing is reliable.
+function resolveUnitCapacity(
   rawCapacidade: number | null | undefined,
-  qty: number | null | undefined
-): number | null {
+  qty: number | null | undefined,
+  dadosTecnicos: any
+): { value: number; source: "extracted" | "suggested" } | null {
+  // 1. Look for an explicit unit capacity in the extracted JSON.
+  const extracted = pickNum(dadosTecnicos || {}, [
+    "capacidade_unitaria_kcal",
+    "capacidade_unitaria",
+    "capacidade_kcal_unitaria",
+    "capacidade_por_equipamento",
+    "capacidade_por_unidade",
+  ]);
+  if (extracted != null && extracted > 0) {
+    return { value: extracted, source: "extracted" };
+  }
+  // 2. Fall back to suggestion only when there is a real quantity > 1 to divide by.
   const c = Number(rawCapacidade);
   const q = Math.max(1, Number(qty) || 1);
   if (!c || isNaN(c) || c <= 0) return null;
-  if (q <= 1) return c;
-  // If capacity divides evenly by quantity AND quotient is plausible (>=200 kcal/h), treat as total.
-  if (c % q === 0 && c / q >= 200) return c / q;
-  // If capacity is "very large" relative to a single unit (heuristic ratio), divide.
-  if (c >= q * 1000) return c / q;
-  // Otherwise assume already unitary.
-  return c;
+  if (q <= 1) {
+    // Single-unit row: registered value IS the unit capacity.
+    return { value: c, source: "extracted" };
+  }
+  // Multi-unit row: suggest division. Mark as suggestion so user can review.
+  return { value: c / q, source: "suggested" };
 }
 
 function Tech() {
