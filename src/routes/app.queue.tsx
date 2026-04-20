@@ -32,33 +32,40 @@ function Queue() {
     refetchInterval: 5000,
   });
 
-  // Stuck = "processing" for more than 5 min (browser tab was likely closed mid-upload)
+  // Stuck = failed | queued | processing > 2min (qualquer doc que está parado precisa de retomada)
   const stuck = (data || []).filter((d) => {
-    if (d.status === "failed") return true;
+    if (d.status === "failed" || d.status === "queued") return true;
     if (d.status === "processing") {
-      return Date.now() - new Date(d.created_at).getTime() > 5 * 60 * 1000;
+      return Date.now() - new Date(d.created_at).getTime() > 2 * 60 * 1000;
     }
     return false;
   });
 
   async function handleReprocessAll() {
-    if (!stuck.length) return;
+    if (!stuck.length) {
+      toast.info("Nenhum documento elegível para reprocessar");
+      return;
+    }
     setReprocessing(true);
     try {
-      // Reset stuck "processing" docs back to "uploaded" so the reprocess pipeline can re-run
-      const stuckIds = stuck.filter((d) => d.status === "processing").map((d) => d.id);
-      if (stuckIds.length) {
+      // Reset todos os docs que não estão "uploaded" para liberar o pipeline
+      const idsToReset = stuck
+        .filter((d) => d.status === "processing" || d.status === "queued")
+        .map((d) => d.id);
+      if (idsToReset.length) {
         await supabase
           .from("documents")
           .update({ status: "uploaded", error_message: null })
-          .in("id", stuckIds);
+          .in("id", idsToReset);
       }
-      // Enqueue all (failed + stuck) for reprocessing
+      // Enfileira em lotes pequenos para não estourar a API gateway de IA
       for (const d of stuck) {
         uploadQueue.reprocess(d.id, d.file_name);
       }
-      uploadQueue.start();
-      toast.success(`${stuck.length} documento(s) reenfileirados para reprocessamento`);
+      // Concorrência baixa para reprocesso (extract + forensic em paralelo é pesado)
+      uploadQueue.setConcurrency(3);
+      void uploadQueue.start();
+      toast.success(`${stuck.length} documento(s) reenfileirados — acompanhe abaixo`);
       refetch();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro ao reprocessar");
@@ -68,11 +75,12 @@ function Queue() {
   }
 
   async function handleReprocessOne(id: string, fileName: string, status: string) {
-    if (status === "processing") {
+    if (status === "processing" || status === "queued") {
       await supabase.from("documents").update({ status: "uploaded", error_message: null }).eq("id", id);
     }
     uploadQueue.reprocess(id, fileName);
-    uploadQueue.start();
+    uploadQueue.setConcurrency(3);
+    void uploadQueue.start();
     toast.success(`${fileName} reenfileirado`);
     refetch();
   }
@@ -125,8 +133,9 @@ function Queue() {
               {data.map((d) => {
                 const isStuck =
                   d.status === "failed" ||
+                  d.status === "queued" ||
                   (d.status === "processing" &&
-                    Date.now() - new Date(d.created_at).getTime() > 5 * 60 * 1000);
+                    Date.now() - new Date(d.created_at).getTime() > 2 * 60 * 1000);
                 return (
                   <tr key={d.id}>
                     <td className="px-4 py-2.5">{d.file_name}</td>
