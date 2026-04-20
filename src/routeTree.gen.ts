@@ -29,7 +29,10 @@ import { Route as AppCompetitorsRouteImport } from './routes/app.competitors'
 import { Route as AppCompareRouteImport } from './routes/app.compare'
 import { Route as AppClientsRouteImport } from './routes/app.clients'
 import { Route as AppAuditRouteImport } from './routes/app.audit'
+import { Route as AppSettingsIndexRouteImport } from './routes/app.settings.index'
 import { Route as AppDocumentsIndexRouteImport } from './routes/app.documents.index'
+import { Route as AppSettingsVersionsRouteImport } from './routes/app.settings.versions'
+import { Route as AppSettingsUsersRouteImport } from './routes/app.settings.users'
 import { Route as AppDocumentsIdRouteImport } from './routes/app.documents.$id'
 import { Route as AppDashboardsTechnicalRouteImport } from './routes/app.dashboards.technical'
 import { Route as AppDashboardsStrategicRouteImport } from './routes/app.dashboards.strategic'
@@ -139,10 +142,25 @@ const AppAuditRoute = AppAuditRouteImport.update({
   path: '/audit',
   getParentRoute: () => AppRoute,
 } as any)
+const AppSettingsIndexRoute = AppSettingsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppSettingsRoute,
+} as any)
 const AppDocumentsIndexRoute = AppDocumentsIndexRouteImport.update({
   id: '/documents/',
   path: '/documents/',
   getParentRoute: () => AppRoute,
+} as any)
+const AppSettingsVersionsRoute = AppSettingsVersionsRouteImport.update({
+  id: '/versions',
+  path: '/versions',
+  getParentRoute: () => AppSettingsRoute,
+} as any)
+const AppSettingsUsersRoute = AppSettingsUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AppSettingsRoute,
 } as any)
 const AppDocumentsIdRoute = AppDocumentsIdRouteImport.update({
   id: '/documents/$id',
@@ -204,7 +222,7 @@ export interface FileRoutesByFullPath {
   '/app/queue': typeof AppQueueRoute
   '/app/recommend': typeof AppRecommendRoute
   '/app/review': typeof AppReviewRoute
-  '/app/settings': typeof AppSettingsRoute
+  '/app/settings': typeof AppSettingsRouteWithChildren
   '/app/upload': typeof AppUploadRoute
   '/app/': typeof AppIndexRoute
   '/app/competitors/$nome': typeof AppCompetitorsNomeRoute
@@ -214,7 +232,10 @@ export interface FileRoutesByFullPath {
   '/app/dashboards/strategic': typeof AppDashboardsStrategicRoute
   '/app/dashboards/technical': typeof AppDashboardsTechnicalRoute
   '/app/documents/$id': typeof AppDocumentsIdRouteWithChildren
+  '/app/settings/users': typeof AppSettingsUsersRoute
+  '/app/settings/versions': typeof AppSettingsVersionsRoute
   '/app/documents/': typeof AppDocumentsIndexRoute
+  '/app/settings/': typeof AppSettingsIndexRoute
   '/app/documents/$id/forensic': typeof AppDocumentsIdForensicRoute
 }
 export interface FileRoutesByTo {
@@ -234,7 +255,6 @@ export interface FileRoutesByTo {
   '/app/queue': typeof AppQueueRoute
   '/app/recommend': typeof AppRecommendRoute
   '/app/review': typeof AppReviewRoute
-  '/app/settings': typeof AppSettingsRoute
   '/app/upload': typeof AppUploadRoute
   '/app': typeof AppIndexRoute
   '/app/competitors/$nome': typeof AppCompetitorsNomeRoute
@@ -244,7 +264,10 @@ export interface FileRoutesByTo {
   '/app/dashboards/strategic': typeof AppDashboardsStrategicRoute
   '/app/dashboards/technical': typeof AppDashboardsTechnicalRoute
   '/app/documents/$id': typeof AppDocumentsIdRouteWithChildren
+  '/app/settings/users': typeof AppSettingsUsersRoute
+  '/app/settings/versions': typeof AppSettingsVersionsRoute
   '/app/documents': typeof AppDocumentsIndexRoute
+  '/app/settings': typeof AppSettingsIndexRoute
   '/app/documents/$id/forensic': typeof AppDocumentsIdForensicRoute
 }
 export interface FileRoutesById {
@@ -266,7 +289,7 @@ export interface FileRoutesById {
   '/app/queue': typeof AppQueueRoute
   '/app/recommend': typeof AppRecommendRoute
   '/app/review': typeof AppReviewRoute
-  '/app/settings': typeof AppSettingsRoute
+  '/app/settings': typeof AppSettingsRouteWithChildren
   '/app/upload': typeof AppUploadRoute
   '/app/': typeof AppIndexRoute
   '/app/competitors/$nome': typeof AppCompetitorsNomeRoute
@@ -276,7 +299,10 @@ export interface FileRoutesById {
   '/app/dashboards/strategic': typeof AppDashboardsStrategicRoute
   '/app/dashboards/technical': typeof AppDashboardsTechnicalRoute
   '/app/documents/$id': typeof AppDocumentsIdRouteWithChildren
+  '/app/settings/users': typeof AppSettingsUsersRoute
+  '/app/settings/versions': typeof AppSettingsVersionsRoute
   '/app/documents/': typeof AppDocumentsIndexRoute
+  '/app/settings/': typeof AppSettingsIndexRoute
   '/app/documents/$id/forensic': typeof AppDocumentsIdForensicRoute
 }
 export interface FileRouteTypes {
@@ -309,7 +335,10 @@ export interface FileRouteTypes {
     | '/app/dashboards/strategic'
     | '/app/dashboards/technical'
     | '/app/documents/$id'
+    | '/app/settings/users'
+    | '/app/settings/versions'
     | '/app/documents/'
+    | '/app/settings/'
     | '/app/documents/$id/forensic'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -329,7 +358,6 @@ export interface FileRouteTypes {
     | '/app/queue'
     | '/app/recommend'
     | '/app/review'
-    | '/app/settings'
     | '/app/upload'
     | '/app'
     | '/app/competitors/$nome'
@@ -339,7 +367,10 @@ export interface FileRouteTypes {
     | '/app/dashboards/strategic'
     | '/app/dashboards/technical'
     | '/app/documents/$id'
+    | '/app/settings/users'
+    | '/app/settings/versions'
     | '/app/documents'
+    | '/app/settings'
     | '/app/documents/$id/forensic'
   id:
     | '__root__'
@@ -370,7 +401,10 @@ export interface FileRouteTypes {
     | '/app/dashboards/strategic'
     | '/app/dashboards/technical'
     | '/app/documents/$id'
+    | '/app/settings/users'
+    | '/app/settings/versions'
     | '/app/documents/'
+    | '/app/settings/'
     | '/app/documents/$id/forensic'
   fileRoutesById: FileRoutesById
 }
@@ -523,12 +557,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAuditRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/settings/': {
+      id: '/app/settings/'
+      path: '/'
+      fullPath: '/app/settings/'
+      preLoaderRoute: typeof AppSettingsIndexRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
     '/app/documents/': {
       id: '/app/documents/'
       path: '/documents'
       fullPath: '/app/documents/'
       preLoaderRoute: typeof AppDocumentsIndexRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/app/settings/versions': {
+      id: '/app/settings/versions'
+      path: '/versions'
+      fullPath: '/app/settings/versions'
+      preLoaderRoute: typeof AppSettingsVersionsRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
+    '/app/settings/users': {
+      id: '/app/settings/users'
+      path: '/users'
+      fullPath: '/app/settings/users'
+      preLoaderRoute: typeof AppSettingsUsersRouteImport
+      parentRoute: typeof AppSettingsRoute
     }
     '/app/documents/$id': {
       id: '/app/documents/$id'
@@ -601,6 +656,22 @@ const AppCompetitorsRouteWithChildren = AppCompetitorsRoute._addFileChildren(
   AppCompetitorsRouteChildren,
 )
 
+interface AppSettingsRouteChildren {
+  AppSettingsUsersRoute: typeof AppSettingsUsersRoute
+  AppSettingsVersionsRoute: typeof AppSettingsVersionsRoute
+  AppSettingsIndexRoute: typeof AppSettingsIndexRoute
+}
+
+const AppSettingsRouteChildren: AppSettingsRouteChildren = {
+  AppSettingsUsersRoute: AppSettingsUsersRoute,
+  AppSettingsVersionsRoute: AppSettingsVersionsRoute,
+  AppSettingsIndexRoute: AppSettingsIndexRoute,
+}
+
+const AppSettingsRouteWithChildren = AppSettingsRoute._addFileChildren(
+  AppSettingsRouteChildren,
+)
+
 interface AppDocumentsIdRouteChildren {
   AppDocumentsIdForensicRoute: typeof AppDocumentsIdForensicRoute
 }
@@ -627,7 +698,7 @@ interface AppRouteChildren {
   AppQueueRoute: typeof AppQueueRoute
   AppRecommendRoute: typeof AppRecommendRoute
   AppReviewRoute: typeof AppReviewRoute
-  AppSettingsRoute: typeof AppSettingsRoute
+  AppSettingsRoute: typeof AppSettingsRouteWithChildren
   AppUploadRoute: typeof AppUploadRoute
   AppIndexRoute: typeof AppIndexRoute
   AppDashboardsCommercialRoute: typeof AppDashboardsCommercialRoute
@@ -653,7 +724,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppQueueRoute: AppQueueRoute,
   AppRecommendRoute: AppRecommendRoute,
   AppReviewRoute: AppReviewRoute,
-  AppSettingsRoute: AppSettingsRoute,
+  AppSettingsRoute: AppSettingsRouteWithChildren,
   AppUploadRoute: AppUploadRoute,
   AppIndexRoute: AppIndexRoute,
   AppDashboardsCommercialRoute: AppDashboardsCommercialRoute,

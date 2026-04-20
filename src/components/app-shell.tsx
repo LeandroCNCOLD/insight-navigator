@@ -41,7 +41,11 @@ const nav: { section: string; items: NavItem[] }[] = [
     { to: "/app/review", label: "Revisão humana", icon: ClipboardCheck },
     { to: "/app/dictionaries", label: "Dicionários", icon: BookOpen },
     { to: "/app/audit", label: "Auditoria", icon: ShieldCheck },
-    { to: "/app/settings", label: "Configurações", icon: Settings },
+  ]},
+  { section: "Administração", items: [
+    { to: "/app/settings", label: "Configurações", icon: Settings, exact: true },
+    { to: "/app/settings/users", label: "Usuários", icon: Users },
+    { to: "/app/settings/versions", label: "Versões & Revisões", icon: ClipboardCheck },
   ]},
 ];
 
