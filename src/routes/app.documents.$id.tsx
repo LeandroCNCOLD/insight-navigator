@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Download, FileText, Sparkles, Ruler, Box, Layers, Zap, Thermometer, Droplets } from "lucide-react";
+import { ArrowLeft, Download, FileText, Sparkles, Ruler, Box, Layers, Zap, Thermometer, Droplets, RefreshCw } from "lucide-react";
+import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/dashboard-bits";
 import { formatBRL, formatBytes, formatDate, statusLabel } from "@/lib/format";
 import { splitRawText } from "@/lib/document-forensic";
+import { uploadQueue } from "@/lib/upload-queue";
 
 export const Route = createFileRoute("/app/documents/$id")({
   component: DocumentDetailPage,
@@ -110,8 +112,22 @@ function DocumentDetailPage() {
       </div>
 
       {d.error_message ? (
-        <Card className="border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
-          Erro de processamento: {d.error_message}
+        <Card className="border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive flex items-start justify-between gap-3">
+          <div>
+            <div className="font-medium">Erro de processamento</div>
+            <div className="opacity-90">{d.error_message}</div>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              uploadQueue.reprocess(d.id, d.file_name);
+              uploadQueue.start();
+              toast.info("Reprocessando documento…");
+            }}
+          >
+            <RefreshCw className="mr-2 h-4 w-4" /> Reprocessar
+          </Button>
         </Card>
       ) : null}
 
