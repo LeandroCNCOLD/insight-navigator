@@ -18,10 +18,21 @@ import {
   Wrench,
   Wind,
   Package,
+  MapPin,
+  Users,
+  Phone,
+  Mail,
+  Route as RouteIcon,
+  Loader2,
+  Building2,
 } from "lucide-react";
 import { formatBRL } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { toast } from "sonner";
+import ReactMarkdown from "react-markdown";
 
 type CamaraJson = {
   nome?: string;
